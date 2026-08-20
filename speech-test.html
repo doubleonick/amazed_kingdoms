@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CARRY — speech check</title>
+<meta name="description" content="Does this device speak sight words well enough to build a word lock on? Test it before committing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-hi:#5CB8FF; --sky-lo:#1B4FD6;
+    --panel:#0C1442; --panel-lo:#161F63; --edge:#040A22;
+    --white:#FFFFFF; --steel:#8FA3D8; --gold:#FFD52E;
+    --good:#3DDC84; --bad:#FF5A5A; --warn:#FFA726;
+    --mat:#F5F0E4; --mat-ink:#2A2620;
+    --pixel:"Press Start 2P",monospace;
+    --screen:"Silkscreen","Press Start 2P",monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:linear-gradient(#8FD4FF 0%,var(--sky-hi) 30%,var(--sky-lo) 100%) fixed;
+    color:var(--white);font-family:var(--screen);font-size:16px;line-height:1.55;
+    display:flex;justify-content:center;padding:clamp(12px,3vw,28px) 12px 60px;
+  }
+  .app{width:100%;max-width:620px;display:flex;flex-direction:column;gap:14px}
+  .panel{
+    background:var(--panel);border:4px solid var(--white);
+    box-shadow:0 0 0 4px var(--edge),7px 7px 0 4px rgba(4,10,34,.42);
+    padding:clamp(12px,3vw,18px);
+  }
+  h1{font-family:var(--pixel);font-size:clamp(.8rem,3.8vw,1.1rem);margin:0;color:var(--gold);text-shadow:3px 3px 0 var(--edge)}
+  h2{font-family:var(--pixel);font-size:.62rem;margin:0 0 12px;color:var(--gold);letter-spacing:.04em}
+  p{margin:0 0 10px}
+  .label{font-family:var(--pixel);font-size:.46rem;letter-spacing:.06em;color:var(--steel);text-transform:uppercase}
+  .muted{color:var(--steel)}
+  .ok{color:var(--good)} .no{color:var(--bad)} .warn{color:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:.86rem}
+  th,td{text-align:left;padding:4px 6px;border-bottom:2px solid #23306F;vertical-align:top}
+  th{font-family:var(--pixel);font-size:.42rem;color:var(--steel);letter-spacing:.05em}
+  .btn{
+    font-family:var(--pixel);font-size:.5rem;
+    background:var(--panel-lo);border:3px solid var(--white);
+    box-shadow:0 0 0 2px var(--edge),3px 3px 0 2px rgba(4,10,34,.42);
+    color:var(--white);padding:11px 12px;cursor:pointer;
+  }
+  .btn:active{background:var(--gold);color:var(--edge);transform:translate(2px,2px);box-shadow:0 0 0 2px var(--edge)}
+  .btn.go{background:#0E9F4F}
+  .btn.big{font-size:.7rem;padding:18px 20px}
+  .btn.sm{font-size:.42rem;padding:8px 9px}
+  .row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;margin-top:10px}
+  select,input[type=range]{font-family:var(--screen);font-size:.9rem}
+  select{background:#0A1038;color:var(--white);border:3px solid #33407F;padding:7px;width:100%}
+  input[type=range]{width:150px;accent-color:var(--gold)}
+  .read{font-family:var(--pixel);font-size:.55rem;color:var(--gold)}
+  .cluster{border:3px solid #33407F;padding:9px;margin:8px 0;background:#0A1038}
+  .cluster.hot{border-color:var(--bad)}
+  .word{font-family:var(--pixel);font-size:.6rem}
+  .opt{
+    font-family:var(--pixel);font-size:.85rem;
+    background:var(--mat);color:var(--mat-ink);
+    border:4px solid var(--edge);padding:20px 6px;cursor:pointer;width:100%;
+  }
+  .opt:active{background:var(--gold)}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}
+  .verdict{font-family:var(--pixel);font-size:.55rem;min-height:2.4em;margin-top:6px}
+  textarea{
+    width:100%;height:190px;background:#0A1038;color:var(--steel);
+    border:3px solid #33407F;font-family:var(--screen);font-size:.82rem;padding:8px;
+  }
+  .pill{
+    display:inline-block;font-family:var(--pixel);font-size:.38rem;
+    padding:3px 5px;border:2px solid currentColor;margin-left:6px;vertical-align:middle;
+  }
+  :focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+</style>
+</head>
+<body>
+<main class="app">
+
+  <div class="panel">
+    <h1>SPEECH CHECK</h1>
+    <p class="muted" style="margin-top:8px">Before building a word lock on text-to-speech, find out whether this
+    device can actually say a sight word clearly to a six-year-old.</p>
+  </div>
+
+  <!-- 1 ................................................................ -->
+  <div class="panel">
+    <h2>1 &middot; THIS DEVICE</h2>
+    <p id="support">Checking&hellip;</p>
+    <div id="voiceTable"></div>
+  </div>
+
+  <!-- 2 ................................................................ -->
+  <div class="panel">
+    <h2>2 &middot; VOICE BENCH</h2>
+    <span class="label">Voice</span>
+    <select id="voiceSel"></select>
+    <div class="row" style="margin-top:12px">
+      <span class="label">Rate</span><input type="range" id="rate" min="0.5" max="1.3" step="0.05" value="0.85">
+      <span class="read" id="rateOut">0.85</span>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <span class="label">Pitch</span><input type="range" id="pitch" min="0.6" max="1.6" step="0.05" value="1">
+      <span class="read" id="pitchOut">1.00</span>
+    </div>
+    <p class="muted" style="margin-top:12px">Tap words. Watch the delay &mdash; anything much over 300&thinsp;ms
+    will feel broken in a timed drill, and remote voices need a network.</p>
+    <div class="row"><span class="label">Band</span>
+      <button class="btn sm" data-band="primer">PRE&mdash;PRIMER</button>
+      <button class="btn sm" data-band="g1">GRADE 1</button>
+      <button class="btn sm" data-band="g2">GRADE 2</button>
+      <button class="btn sm" data-band="g3">GRADE 3</button>
+    </div>
+    <div class="grid" id="wordGrid"></div>
+    <p class="read" id="latency" style="margin-top:12px">&mdash;</p>
+  </div>
+
+  <!-- 3 ................................................................ -->
+  <div class="panel">
+    <h2>3 &middot; THE HOMOPHONE HOLE</h2>
+    <p>Hear-a-word-pick-the-word has a structural flaw: <b>homophones are
+    unanswerable</b>. No voice can distinguish <i>to</i> from <i>two</i>. The
+    sight-word lists are full of them, and some pairs sit <b>both</b> inside
+    Dolch, so a naive implementation will generate items with no correct answer.</p>
+    <p class="muted">Tap a cluster and try to tell which one was said.</p>
+    <div id="homophones"></div>
+  </div>
+
+  <!-- 4 ................................................................ -->
+  <div class="panel">
+    <h2>4 &middot; LIVE TRIAL</h2>
+    <p class="muted">The real mechanic. Sit a child down for this part. Wrong
+    answers are recorded <i>by distractor type</i>, which is the signal a word
+    game would adapt on.</p>
+    <div class="row" style="margin:12px 0">
+      <span class="label">Items</span>
+      <button class="btn sm" id="modeAll">INCLUDE TRAPS</button>
+      <button class="btn sm go" id="modeSafe">HOMOPHONE-SAFE</button>
+    </div>
+    <p class="read" id="modeOut">Homophone-safe: unanswerable items removed</p>
+    <div class="row" style="margin-top:10px">
+      <button class="btn big go" id="play">PLAY WORD</button>
+      <button class="btn" id="replay">SAY AGAIN</button>
+    </div>
+    <div class="opts" id="opts"></div>
+    <p class="verdict" id="verdict"></p>
+    <p class="label" id="score">Score 0 / 0 &middot; replays 0</p>
+  </div>
+
+  <!-- 5 ................................................................ -->
+  <div class="panel">
+    <h2>5 &middot; RESULTS</h2>
+    <div class="row">
+      <button class="btn" id="showLog">SHOW LOG</button>
+      <button class="btn" id="copyLog">COPY</button>
+      <button class="btn" id="clearLog">CLEAR</button>
+    </div>
+    <p class="muted" id="summary" style="margin-top:12px">No attempts yet.</p>
+    <textarea id="log" readonly></textarea>
+  </div>
+
+</main>
+
+<script>
+(function(){
+  "use strict";
+  var el=function(i){return document.getElementById(i);};
+  var SS=window.speechSynthesis;
+
+  /* =================================================================
+     Dolch sight words, by band. Public-domain word lists.
+  ================================================================= */
+  var WORDS={
+    primer:["a","and","away","big","blue","can","come","down","find","for","funny","go",
+            "help","here","I","in","is","it","jump","little","look","make","me","my","not",
+            "one","play","red","run","said","see","the","three","to","two","up","we","where","you"],
+    g1:["after","again","an","any","as","ask","by","could","every","fly","from","give","had",
+        "has","her","him","his","how","just","know","let","live","may","of","old","once","open",
+        "over","put","round","some","stop","take","thank","them","then","think","walk","were","when"],
+    g2:["always","around","because","been","before","best","both","buy","call","cold","does",
+        "fast","first","five","found","gave","goes","green","its","made","many","off","or","pull",
+        "read","right","sing","sit","sleep","tell","their","these","those","upon","us","use",
+        "very","wash","which","why","wish","work","would","write","your"],
+    g3:["about","better","bring","carry","clean","cut","done","draw","drink","eight","fall","far",
+        "full","got","grow","hold","hot","hurt","if","keep","kind","laugh","light","long","much",
+        "myself","never","only","own","pick","seven","shall","show","six","small","start","ten",
+        "today","together","try","warm"]
+  };
+  var ALL={};
+  Object.keys(WORDS).forEach(function(b){ WORDS[b].forEach(function(w){ ALL[w.toLowerCase()]=b; }); });
+
+  var HOMOPHONES=[
+    ["to","two","too"],["there","their"],["one","won"],["by","buy","bye"],
+    ["right","write"],["for","four"],["no","know"],["be","bee"],
+    ["red","read"],["ate","eight"],["see","sea"],["blue","blew"],
+    ["new","knew"],["hear","here"],["would","wood"],["I","eye"],
+    ["our","hour"],["so","sew"],["their","they're"]
+  ];
+
+  /* Curated trials. Distractor types are the diagnosis:
+       visual   - chose a word that LOOKS like the target (letter order)
+       onset    - chose a word starting the same (guessing from first sound)
+       phonetic - chose a word that SOUNDS close (audio discrimination)
+       random   - chose something unrelated (doesn't know it, or didn't hear)
+       homophone- IMPOSSIBLE, no correct answer exists by ear                 */
+  var TRIALS=[
+    {w:"was",   o:[["was","target"],["saw","visual"],["wants","onset"],["work","random"]]},
+    {w:"when",  o:[["when","target"],["where","onset"],["went","onset"],["then","phonetic"]]},
+    {w:"three", o:[["three","target"],["tree","phonetic"],["there","visual"],["their","visual"]]},
+    {w:"of",    o:[["of","target"],["off","phonetic"],["for","random"],["or","visual"]]},
+    {w:"want",  o:[["want","target"],["went","visual"],["what","onset"],["with","onset"]]},
+    {w:"little",o:[["little","target"],["letter","visual"],["like","onset"],["live","onset"]]},
+    {w:"said",  o:[["said","target"],["sad","visual"],["same","onset"],["see","onset"]]},
+    {w:"were",  o:[["were","target"],["where","visual"],["we","onset"],["wear","phonetic"]]},
+    {w:"which", o:[["which","target"],["with","visual"],["white","onset"],["much","phonetic"]]},
+    {w:"found", o:[["found","target"],["round","phonetic"],["from","onset"],["first","onset"]]},
+    {w:"laugh", o:[["laugh","target"],["light","onset"],["long","onset"],["last","onset"]]},
+    {w:"about", o:[["about","target"],["above","visual"],["around","onset"],["always","onset"]]},
+    /* traps: no answer can be right, because the options sound identical */
+    {w:"no",    o:[["no","target"],["know","homophone"],["now","visual"],["new","onset"]], trap:true},
+    {w:"their", o:[["their","target"],["there","homophone"],["then","visual"],["they","onset"]], trap:true},
+    {w:"read",  o:[["read","target"],["red","homophone"],["ready","onset"],["real","onset"]], trap:true},
+    {w:"buy",   o:[["buy","target"],["by","homophone"],["big","onset"],["boy","visual"]], trap:true},
+    {w:"eight", o:[["eight","target"],["ate","homophone"],["night","phonetic"],["right","phonetic"]], trap:true},
+    {w:"to",    o:[["to","target"],["two","homophone"],["today","onset"],["ten","onset"]], trap:true}
+  ];
+
+  /* =================================================================
+     Speaking
+  ================================================================= */
+  var voices=[], voice=null, LOG=[];
+
+  function loadVoices(cb){
+    var done=false, tries=0;
+    function finish(v){ if(done) return; done=true; cb(v||[]); }
+    if(!SS) return finish([]);
+    var v=SS.getVoices();
+    if(v && v.length) return finish(v);
+    try{ SS.addEventListener("voiceschanged", function once(){
+      SS.removeEventListener("voiceschanged", once); finish(SS.getVoices());
+    }); }catch(e){}
+    /* some builds never fire the event, so poll briefly as well */
+    var iv=setInterval(function(){
+      var vv=SS.getVoices();
+      if((vv&&vv.length) || ++tries>24){ clearInterval(iv); finish(vv); }
+    },140);
+  }
+
+  function say(text,cb){
+    if(!SS){ cb && cb({error:"unsupported"}); return; }
+    try{ SS.cancel(); }catch(e){}
+    var u=new SpeechSynthesisUtterance(text);
+    if(voice) u.voice=voice;
+    u.rate=parseFloat(el("rate").value);
+    u.pitch=parseFloat(el("pitch").value);
+    var t0=performance.now(), started=null, fired=false;
+    u.onstart=function(){ started=performance.now()-t0; };
+    u.onend=function(){ if(fired)return; fired=true;
+      cb && cb({latency:started, total:performance.now()-t0}); };
+    u.onerror=function(e){ if(fired)return; fired=true;
+      cb && cb({error:(e&&e.error)||"error"}); };
+    SS.speak(u);
+    /* a silent failure is itself a finding */
+    setTimeout(function(){ if(!fired){ fired=true; cb && cb({error:"no callback in 4s"}); } },4000);
+  }
+
+  function report(x){
+    if(x.error){ el("latency").innerHTML='<span class="no">FAILED: '+x.error+'</span>'; return; }
+    var lat = x.latency==null ? "?" : Math.round(x.latency);
+    var cls = x.latency==null ? "warn" : (x.latency<300?"ok":(x.latency<700?"warn":"no"));
+    el("latency").innerHTML='delay to first sound <span class="'+cls+'">'+lat+
+      ' ms</span> &middot; spoken in '+Math.round(x.total)+' ms';
+  }
+
+  /* =================================================================
+     1 - device report
+  ================================================================= */
+  function describeDevice(){
+    if(!SS){
+      el("support").innerHTML='<span class="no">No speechSynthesis on this device.</span> '+
+        'The audio-matching design cannot work here; an adult would have to score reading aloud.';
+      return;
+    }
+    loadVoices(function(v){
+      voices=v||[];
+      var en=voices.filter(function(x){ return /^en/i.test(x.lang||""); });
+      var local=en.filter(function(x){ return x.localService; });
+      var msg='<span class="ok">speechSynthesis available.</span> '+voices.length+
+              ' voices, '+en.length+' English, <b>'+local.length+' English and on-device</b>.';
+      if(!voices.length) msg='<span class="warn">No voices reported yet.</span> Tap a word below; some devices only populate voices after the first request.';
+      else if(!local.length) msg+=' <span class="warn">No on-device English voice &mdash; expect network dependence and lag.</span>';
+      el("support").innerHTML=msg;
+
+      var rows='<table><tr><th>voice</th><th>lang</th><th>where</th></tr>';
+      (en.length?en:voices).slice(0,14).forEach(function(x){
+        rows+='<tr><td>'+x.name+(x.default?' <span class="pill">default</span>':'')+
+              '</td><td class="muted">'+x.lang+'</td><td class="'+(x.localService?'ok':'warn')+'">'+
+              (x.localService?'on device':'network')+'</td></tr>';
+      });
+      el("voiceTable").innerHTML=rows+'</table>';
+
+      var sel=el("voiceSel"); sel.innerHTML="";
+      var pool = en.length?en:voices;
+      pool.forEach(function(x,i){
+        var o=document.createElement("option");
+        o.value=i; o.textContent=x.name+"  ("+x.lang+(x.localService?", on device":", network")+")";
+        sel.appendChild(o);
+      });
+      var pick = pool.findIndex(function(x){ return x.localService; });
+      sel.value = String(pick>=0?pick:0);
+      voice = pool[pick>=0?pick:0]||null;
+      sel.addEventListener("change",function(){ voice=pool[+sel.value]||null; });
+    });
+  }
+
+  /* =================================================================
+     2 - word bench
+  ================================================================= */
+  function showBand(band){
+    var g=el("wordGrid"); g.innerHTML="";
+    WORDS[band].forEach(function(w){
+      var b=document.createElement("button");
+      b.type="button"; b.className="btn sm"; b.textContent=w;
+      b.addEventListener("click",function(){
+        say(w,function(x){ report(x);
+          LOG.push({kind:"bench",word:w,band:band,rate:+el("rate").value,
+                    latency:x.latency==null?null:Math.round(x.latency),error:x.error||null});
+          refreshSummary();
+        });
+      });
+      g.appendChild(b);
+    });
+  }
+
+  /* =================================================================
+     3 - homophones
+  ================================================================= */
+  function showHomophones(){
+    var box=el("homophones"); box.innerHTML="";
+    HOMOPHONES.forEach(function(cl){
+      var inDolch=cl.filter(function(w){ return ALL[w.toLowerCase()]; });
+      var hot=inDolch.length>1;
+      var d=document.createElement("div");
+      d.className="cluster"+(hot?" hot":"");
+      var tag = hot
+        ? '<span class="pill no">BOTH IN DOLCH</span>'
+        : (inDolch.length? '<span class="pill warn">ONE IN DOLCH</span>' : '');
+      d.innerHTML='<span class="word">'+cl.join(" / ")+'</span> '+tag+'<br>';
+      cl.forEach(function(w){
+        var b=document.createElement("button");
+        b.type="button"; b.className="btn sm"; b.textContent='SAY "'+w+'"';
+        b.style.marginTop="8px"; b.style.marginRight="6px";
+        b.addEventListener("click",function(){
+          say(w,function(x){ report(x);
+            LOG.push({kind:"homophone",cluster:cl.join("/"),spoken:w,
+                      bothInDolch:hot,latency:x.latency==null?null:Math.round(x.latency)});
+            refreshSummary();
+          });
+        });
+        d.appendChild(b);
+      });
+      box.appendChild(d);
+    });
+    var hotCount=HOMOPHONES.filter(function(cl){
+      return cl.filter(function(w){return ALL[w.toLowerCase()];}).length>1; }).length;
+    var note=document.createElement("p");
+    note.className="read";
+    note.style.marginTop="10px";
+    note.innerHTML=hotCount+" of "+HOMOPHONES.length+
+      " clusters have two or more members inside the Dolch lists.";
+    box.appendChild(note);
+  }
+
+  /* =================================================================
+     4 - live trial
+  ================================================================= */
+  var safeOnly=true, current=null, replays=0, right=0, asked=0;
+
+  function pool(){ return safeOnly ? TRIALS.filter(function(t){ return !t.trap; }) : TRIALS; }
+
+  function setMode(safe){
+    safeOnly=safe;
+    el("modeOut").textContent = safe
+      ? "Homophone-safe: unanswerable items removed ("+pool().length+" items)"
+      : "Traps included: 6 items have no correct answer by ear ("+pool().length+" items)";
+    el("modeSafe").className="btn sm"+(safe?" go":"");
+    el("modeAll").className="btn sm"+(safe?"":" go");
+  }
+
+  function shuffle(a){
+    a=a.slice();
+    for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; }
+    return a;
+  }
+
+  function nextTrial(){
+    var p=pool();
+    current={ item:p[Math.floor(Math.random()*p.length)], t0:0 };
+    current.order=shuffle(current.item.o);
+    replays=0;
+    el("verdict").textContent="";
+    var box=el("opts"); box.innerHTML="";
+    current.order.forEach(function(pair){
+      var b=document.createElement("button");
+      b.type="button"; b.className="opt"; b.textContent=pair[0];
+      b.addEventListener("click",function(){ choose(pair); });
+      box.appendChild(b);
+    });
+    say(current.item.w,function(x){
+      report(x);
+      current.t0=performance.now();
+    });
+  }
+
+  function choose(pair){
+    if(!current||!current.t0) return;
+    var ms=performance.now()-current.t0;
+    var it=current.item;
+    var ok = pair[1]==="target";
+    asked++; if(ok) right++;
+    LOG.push({kind:"trial",word:it.w,chose:pair[0],type:pair[1],correct:ok,
+              trap:!!it.trap,ms:Math.round(ms),replays:replays,rate:+el("rate").value});
+    var v=el("verdict");
+    if(ok) v.innerHTML='<span class="ok">RIGHT</span> &middot; '+(ms/1000).toFixed(1)+'s'+
+        (replays?' after '+replays+' replay'+(replays>1?'s':''):'');
+    else if(pair[1]==="homophone")
+      v.innerHTML='<span class="no">IMPOSSIBLE</span> &middot; "'+pair[0]+'" and "'+it.w+
+        '" sound identical. Nothing was wrong with the child.';
+    else v.innerHTML='<span class="no">"'+it.w+'"</span> &middot; chose the '+pair[1]+' distractor';
+    el("score").textContent="Score "+right+" / "+asked+" \u00b7 replays "+replays;
+    current.t0=0;
+    refreshSummary();
+    setTimeout(nextTrial, ok?900:2200);
+  }
+
+  /* =================================================================
+     5 - results
+  ================================================================= */
+  function refreshSummary(){
+    var trials=LOG.filter(function(x){return x.kind==="trial";});
+    var bench=LOG.filter(function(x){return x.kind==="bench"&&x.latency!=null;});
+    var parts=[];
+    if(bench.length){
+      var lat=bench.map(function(x){return x.latency;}).sort(function(a,b){return a-b;});
+      parts.push("median delay "+lat[Math.floor(lat.length/2)]+" ms over "+bench.length+" words");
+    }
+    if(trials.length){
+      var byType={};
+      trials.filter(function(t){return !t.correct;}).forEach(function(t){
+        byType[t.type]=(byType[t.type]||0)+1;
+      });
+      var c=trials.filter(function(t){return t.correct;}).length;
+      parts.push(c+"/"+trials.length+" correct");
+      var keys=Object.keys(byType);
+      if(keys.length) parts.push("errors by type: "+keys.map(function(k){return k+" "+byType[k];}).join(", "));
+    }
+    el("summary").textContent = parts.length? parts.join(" \u00b7 ") : "No attempts yet.";
+  }
+
+  el("showLog").addEventListener("click",function(){
+    el("log").value = LOG.length? JSON.stringify(LOG,null,1) : "Nothing logged yet.";
+  });
+  el("copyLog").addEventListener("click",function(){
+    el("log").value=JSON.stringify(LOG,null,1);
+    el("log").select();
+    try{ document.execCommand("copy"); }catch(e){}
+  });
+  el("clearLog").addEventListener("click",function(){
+    LOG=[]; right=0; asked=0; el("log").value=""; el("score").textContent="Score 0 / 0 \u00b7 replays 0";
+    refreshSummary();
+  });
+
+  /* =================================================================
+     Wiring
+  ================================================================= */
+  el("rate").addEventListener("input",function(){ el("rateOut").textContent=(+this.value).toFixed(2); });
+  el("pitch").addEventListener("input",function(){ el("pitchOut").textContent=(+this.value).toFixed(2); });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-band]"),function(b){
+    b.addEventListener("click",function(){ showBand(b.getAttribute("data-band")); });
+  });
+  el("modeSafe").addEventListener("click",function(){ setMode(true); });
+  el("modeAll").addEventListener("click",function(){ setMode(false); });
+  el("play").addEventListener("click",nextTrial);
+  el("replay").addEventListener("click",function(){
+    if(!current) return;
+    replays++;
+    el("score").textContent="Score "+right+" / "+asked+" \u00b7 replays "+replays;
+    say(current.item.w,report);
+  });
+
+  describeDevice();
+  showBand("primer");
+  showHomophones();
+  setMode(true);
+  refreshSummary();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CARRY — maze editor</title>
+<meta name="description" content="Draw mazes, place locks and keys, and check they can actually be finished. Emits carrymaze/1 documents.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#8FD4FF; --sky-hi:#5CB8FF; --sky-lo:#1B4FD6;
+    --panel:#0C1442; --panel-lo:#161F63; --edge:#040A22;
+    --white:#FFFFFF; --steel:#8FA3D8; --gold:#FFD52E;
+    --num:#FFD52E; --word:#FF6BB3; --good:#3DDC84; --bad:#FF5A5A;
+    --pixel:"Press Start 2P",monospace;
+    --screen:"Silkscreen","Press Start 2P",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(var(--sky-top) 0%,var(--sky-hi) 30%,var(--sky-lo) 100%) fixed;
+    color:var(--white);font-family:var(--screen);font-size:16px;line-height:1.5;
+    display:flex;justify-content:center;padding:clamp(12px,3vw,28px) 12px 60px}
+  .app{width:100%;max-width:800px;display:flex;flex-direction:column;gap:14px}
+  .panel{background:var(--panel);border:4px solid var(--white);
+    box-shadow:0 0 0 4px var(--edge),7px 7px 0 4px rgba(4,10,34,.42);padding:clamp(12px,3vw,18px)}
+  h1{font-family:var(--pixel);font-size:clamp(.8rem,3.8vw,1.1rem);margin:0;color:var(--gold);text-shadow:3px 3px 0 var(--edge)}
+  h2{font-family:var(--pixel);font-size:.58rem;margin:0 0 12px;color:var(--gold)}
+  p{margin:0 0 10px}
+  .muted{color:var(--steel)}
+  .label{font-family:var(--pixel);font-size:.44rem;letter-spacing:.06em;color:var(--steel);text-transform:uppercase}
+  .btn{font-family:var(--pixel);font-size:.46rem;background:var(--panel-lo);
+    border:3px solid var(--white);box-shadow:0 0 0 2px var(--edge),3px 3px 0 2px rgba(4,10,34,.42);
+    color:var(--white);padding:10px 11px;cursor:pointer}
+  .btn:active{transform:translate(2px,2px);box-shadow:0 0 0 2px var(--edge)}
+  .btn.sm{font-size:.4rem;padding:7px 8px}
+  .btn.on{background:var(--good);color:var(--edge);border-color:var(--edge)}
+  .btn.num.on{background:var(--num)} .btn.word.on{background:var(--word)}
+  .btn.go{background:#0E9F4F}
+  .btn.danger{background:#8A2230}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input[type=number]{width:64px;background:#0A1038;color:#fff;border:3px solid #33407F;
+    padding:6px;font-family:var(--screen);font-size:.9rem}
+  input[type=text]{background:#0A1038;color:#fff;border:3px solid #33407F;padding:7px;
+    font-family:var(--screen);font-size:.9rem}
+  canvas{display:block;width:100%;height:auto;image-rendering:pixelated;
+    border:4px solid var(--edge);background:#0A1038;touch-action:none;cursor:crosshair}
+  textarea{width:100%;height:150px;background:#0A1038;color:var(--steel);
+    border:3px solid #33407F;font-family:var(--screen);font-size:.8rem;padding:8px}
+  .report{border:3px solid #33407F;background:#0A1038;padding:12px;margin-top:12px;font-size:.9rem}
+  .report.ok{border-color:var(--good);color:var(--good)}
+  .report.bad{border-color:var(--bad);color:var(--bad)}
+  .report ul{margin:8px 0 0;padding-left:18px}
+  .lib{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .libitem{display:flex;gap:8px;align-items:center;border:3px solid #33407F;padding:8px;background:#0A1038}
+  .libitem span{flex:1;font-size:.88rem}
+  code{background:#0A1038;padding:1px 4px;color:var(--gold)}
+</style>
+</head>
+<body>
+<main class="app">
+
+  <div class="panel">
+    <h1>MAZE EDITOR</h1>
+    <p class="muted" style="margin-top:8px">Draws <b>carrymaze/1</b> documents &mdash; the same
+    thing the generator emits, so the game cannot tell the difference. See
+    <code>MAZE-FORMAT.md</code>.</p>
+    <p class="muted">The important button is <b>CHECK</b>. It walks the maze the way a player
+    would: collecting every key it can reach, opening every lock it has the key for, and
+    seeing whether the exit can be got to. An authored maze has to pass that the same as a
+    generated one.</p>
+  </div>
+
+  <div class="panel">
+    <h2>THE GRID</h2>
+    <div class="row">
+      <span class="label">Cells</span>
+      <input type="number" id="w" min="3" max="24" value="9">
+      <span class="muted">&times;</span>
+      <input type="number" id="h" min="3" max="18" value="7">
+      <button class="btn sm" id="resize">RESIZE</button>
+      <button class="btn sm go" id="gen">GENERATE ONE</button>
+      <button class="btn sm" id="openAll">ALL OPEN</button>
+      <button class="btn sm" id="closeAll">ALL WALLS</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>TOOLS</h2>
+    <div class="row" id="tools"></div>
+    <p class="muted" style="margin-top:10px;font-size:.86rem" id="hint"></p>
+    <div class="row" style="margin-top:8px">
+      <span class="label">Answers per lock</span>
+      <input type="number" id="req" min="1" max="9" value="3">
+      <span class="muted" style="font-size:.86rem">applied to locks as you place them</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <canvas id="cv" width="280" height="200"></canvas>
+    <div class="row" style="margin-top:10px">
+      <button class="btn go" id="check">CHECK</button>
+      <button class="btn" id="autokeys">PLACE MISSING KEYS</button>
+      <button class="btn danger" id="clearItems">REMOVE LOCKS AND KEYS</button>
+    </div>
+    <div class="report" id="report">Not checked yet.</div>
+  </div>
+
+  <div class="panel">
+    <h2>SAVED MAZES</h2>
+    <div class="row">
+      <input type="text" id="name" placeholder="name" style="flex:1;min-width:140px">
+      <button class="btn go" id="save">SAVE</button>
+    </div>
+    <p class="muted" style="margin-top:8px;font-size:.86rem">Saved mazes appear in the game
+    under <b>AUTHORED</b> in the footer.</p>
+    <div class="lib" id="lib"></div>
+  </div>
+
+  <div class="panel">
+    <h2>DOCUMENT</h2>
+    <div class="row">
+      <button class="btn" id="copy">COPY</button>
+      <button class="btn" id="load">LOAD FROM BOX</button>
+    </div>
+    <textarea id="json" spellcheck="false" style="margin-top:12px"></textarea>
+  </div>
+
+</main>
+
+<script>
+(function(){
+  "use strict";
+  var el=function(i){return document.getElementById(i);};
+  var N=1,E=2,S=4,W=8;
+  var DX={1:0,2:1,4:0,8:-1}, DY={1:-1,2:0,4:1,8:0}, OPP={1:4,2:8,4:1,8:2};
+  var SIDE={1:"N",2:"E",4:"S",8:"W"}, BIT={N:1,E:2,S:4,W:8};
+  var LIBKEY="carrymaze.authored";
+  var B=14;
+  var doc=null, tool="wall";
+
+  /* =================================================================
+     THE VALIDATOR
+
+     Must agree with the one inside maze.html. It is written out again
+     here rather than shared, because the game must not depend on a file
+     the editor owns. MAZE-FORMAT.md is the contract they both answer to.
+  ================================================================= */
+  function edgeKey(x,y,d){
+    if(d===N) return x+","+(y-1)+",S";
+    if(d===W) return (x-1)+","+y+",E";
+    return x+","+y+","+SIDE[d];
+  }
+  function bfs(w,h,open,sx,sy,blocked){
+    var dist=new Array(w*h).fill(-1), q=[sy*w+sx];
+    dist[sy*w+sx]=0;
+    for(var i=0;i<q.length;i++){
+      var c=q[i], cx=c%w, cy=(c/w)|0;
+      [N,E,S,W].forEach(function(d){
+        if(!(open[c]&d)) return;
+        if(blocked && blocked[edgeKey(cx,cy,d)]) return;
+        var nx=cx+DX[d], ny=cy+DY[d];
+        if(nx<0||ny<0||nx>=w||ny>=h) return;
+        var n=ny*w+nx;
+        if(dist[n]!==-1) return;
+        dist[n]=dist[c]+1; q.push(n);
+      });
+    }
+    return {dist:dist, order:q};
+  }
+  function validate(d){
+    var problems=[];
+    if(d.format!=="carrymaze/1") problems.push("format is not carrymaze/1");
+    var w=d.size.w, h=d.size.h, open=[];
+    for(var y=0;y<h;y++) for(var x=0;x<w;x++) open.push(d.open[y][x]);
+    for(var yy=0;yy<h;yy++) for(var xx=0;xx<w;xx++){
+      [N,E,S,W].forEach(function(dir){
+        var nx=xx+DX[dir], ny=yy+DY[dir];
+        var inside=nx>=0&&nx<w&&ny>=0&&ny<h;
+        var here=!!(open[yy*w+xx]&dir);
+        if(!inside&&here) problems.push("an opening leads off the grid at "+xx+","+yy);
+        if(inside&&here!==!!(open[ny*w+nx]&OPP[dir]))
+          problems.push("walls disagree between "+xx+","+yy+" and "+nx+","+ny);
+      });
+    }
+    var full=bfs(w,h,open,d.spawn.x,d.spawn.y,null);
+    if(full.order.length!==w*h)
+      problems.push((w*h-full.order.length)+" cell(s) cannot be reached at all");
+    var ids={};
+    d.keys.forEach(function(k){ if(ids[k.id]) problems.push("two keys share id "+k.id); ids[k.id]=true; });
+    d.doors.forEach(function(dr){
+      if(!ids[dr.keyId]) problems.push("lock "+(dr.id+1)+" needs key "+(dr.keyId+1)+", which is not on the map");
+    });
+    var blocked={};
+    d.doors.forEach(function(dr){ blocked[dr.cell.x+","+dr.cell.y+","+dr.side]=dr.id; });
+    var openDoors={}, held={}, guard=0;
+    while(guard++<60){
+      var live={};
+      Object.keys(blocked).forEach(function(k){ if(!openDoors[blocked[k]]) live[k]=true; });
+      var reach=bfs(w,h,open,d.spawn.x,d.spawn.y,live);
+      d.keys.forEach(function(k){ if(reach.dist[k.cell.y*w+k.cell.x]!==-1) held[k.id]=true; });
+      if(reach.dist[d.exit.y*w+d.exit.x]!==-1) return {ok:!problems.length, problems:problems};
+      var opened=false;
+      d.doors.forEach(function(dr){
+        if(openDoors[dr.id] || !held[dr.keyId]) return;
+        var a=reach.dist[dr.cell.y*w+dr.cell.x]!==-1;
+        var nb=BIT[dr.side];
+        var b=reach.dist[(dr.cell.y+DY[nb])*w+(dr.cell.x+DX[nb])]!==-1;
+        if(a||b){ openDoors[dr.id]=true; opened=true; }
+      });
+      if(!opened) break;
+    }
+    problems.push("the exit cannot be reached, even with every key that can be got to");
+    return {ok:false, problems:problems};
+  }
+
+  /* ---- documents ---- */
+  function blank(w,h){
+    var open=[];
+    for(var y=0;y<h;y++){ var r=[]; for(var x=0;x<w;x++) r.push(0); open.push(r); }
+    return { format:"carrymaze/1", level:1, size:{w:w,h:h},
+             spawn:{x:0,y:0}, exit:{x:w-1,y:h-1}, open:open, doors:[], keys:[] };
+  }
+  function carve(w,h){
+    var d=blank(w,h), seen=new Array(w*h).fill(false), stack=[[0,0]];
+    seen[0]=true;
+    while(stack.length){
+      var t=stack[stack.length-1], cx=t[0], cy=t[1], opts=[];
+      [N,E,S,W].forEach(function(dir){
+        var nx=cx+DX[dir], ny=cy+DY[dir];
+        if(nx>=0&&nx<w&&ny>=0&&ny<h&&!seen[ny*w+nx]) opts.push(dir);
+      });
+      if(!opts.length){ stack.pop(); continue; }
+      var dir=opts[Math.floor(Math.random()*opts.length)];
+      var nx=cx+DX[dir], ny=cy+DY[dir];
+      d.open[cy][cx]|=dir; d.open[ny][nx]|=OPP[dir];
+      seen[ny*w+nx]=true; stack.push([nx,ny]);
+    }
+    return d;
+  }
+  function setSize(w,h){
+    var old=doc;
+    doc=blank(w,h);
+    if(old) for(var y=0;y<Math.min(h,old.size.h);y++)
+      for(var x=0;x<Math.min(w,old.size.w);x++) doc.open[y][x]=old.open[y][x];
+    for(var y2=0;y2<h;y2++) for(var x2=0;x2<w;x2++){
+      [N,E,S,W].forEach(function(dir){
+        var nx=x2+DX[dir], ny=y2+DY[dir];
+        if(nx<0||ny<0||nx>=w||ny>=h) doc.open[y2][x2] &= ~dir;
+      });
+    }
+    doc.spawn={x:0,y:0}; doc.exit={x:w-1,y:h-1};
+    doc.doors=doc.doors.filter(function(d){ return d.cell.x<w&&d.cell.y<h; });
+    doc.keys=doc.keys.filter(function(k){ return k.cell.x<w&&k.cell.y<h; });
+    renumber();
+  }
+
+  /* ---- editing ---- */
+  function renumber(){
+    doc.doors.forEach(function(d,i){ d.id=i; d.keyId=i; });
+    doc.keys.forEach(function(k,i){ k.id=i; });
+  }
+  function toggleEdge(cx,cy,dir){
+    var nx=cx+DX[dir], ny=cy+DY[dir];
+    if(nx<0||ny<0||nx>=doc.size.w||ny>=doc.size.h) return;
+    var wasOpen=!!(doc.open[cy][cx]&dir);
+    doc.open[cy][cx]^=dir; doc.open[ny][nx]^=OPP[dir];
+    if(wasOpen){
+      var k=edgeKey(cx,cy,dir);
+      doc.doors=doc.doors.filter(function(d){ return d.cell.x+","+d.cell.y+","+d.side!==k; });
+      renumber();
+    }
+  }
+  function doorAt(cx,cy,dir){
+    var k=edgeKey(cx,cy,dir);
+    for(var i=0;i<doc.doors.length;i++){
+      var d=doc.doors[i];
+      if(d.cell.x+","+d.cell.y+","+d.side===k) return d;
+    }
+    return null;
+  }
+  function placeDoor(cx,cy,dir,kind){
+    if(!(doc.open[cy][cx]&dir)) return "a lock needs an opening to sit in";
+    if(doorAt(cx,cy,dir)) return "there is already a lock there";
+    var parts=edgeKey(cx,cy,dir).split(",");
+    doc.doors.push({ id:doc.doors.length, cell:{x:+parts[0],y:+parts[1]}, side:parts[2],
+                     kind:kind, required:Math.max(1,+el("req").value||3), keyId:doc.doors.length });
+    return null;
+  }
+  function keyAt(cx,cy){
+    for(var i=0;i<doc.keys.length;i++)
+      if(doc.keys[i].cell.x===cx&&doc.keys[i].cell.y===cy) return doc.keys[i];
+    return null;
+  }
+  function placeKey(cx,cy,kind){
+    if(keyAt(cx,cy)) return "there is already a key there";
+    doc.keys.push({ id:doc.keys.length, cell:{x:cx,y:cy}, kind:kind });
+    return null;
+  }
+  function eraseAt(cx,cy,dir){
+    var before=doc.doors.length+doc.keys.length;
+    if(dir!=null){
+      var k=edgeKey(cx,cy,dir);
+      doc.doors=doc.doors.filter(function(d){ return d.cell.x+","+d.cell.y+","+d.side!==k; });
+    } else {
+      doc.keys=doc.keys.filter(function(x){ return !(x.cell.x===cx&&x.cell.y===cy); });
+    }
+    if(doc.doors.length+doc.keys.length!==before) renumber();
+  }
+
+  /* A key for every lock that lacks one, dropped somewhere you can reach
+     before meeting that lock — preferring a dead end, so finding it is
+     exploring rather than tripping over it. */
+  function autoKeys(){
+    var w=doc.size.w,h=doc.size.h, placed=0, stuck=[];
+    doc.doors.forEach(function(d){
+      if(doc.keys.some(function(k){ return k.id===d.keyId; })) return;
+      var blocked={};
+      doc.doors.forEach(function(o){ if(o.id<=d.id) blocked[o.cell.x+","+o.cell.y+","+o.side]=true; });
+      var open=[];
+      for(var y=0;y<h;y++) for(var x=0;x<w;x++) open.push(doc.open[y][x]);
+      var reach=bfs(w,h,open,doc.spawn.x,doc.spawn.y,blocked);
+      var best=null, bestScore=-1;
+      for(var c=0;c<w*h;c++){
+        if(reach.dist[c]<0) continue;
+        var cx=c%w, cy=(c/w)|0;
+        if(cx===doc.spawn.x&&cy===doc.spawn.y) continue;
+        if(keyAt(cx,cy)) continue;
+        var m=doc.open[cy][cx], deg=0;
+        while(m){ deg+=m&1; m>>=1; }
+        var score=reach.dist[c]+(deg===1?100:0);
+        if(score>bestScore){ bestScore=score; best={x:cx,y:cy}; }
+      }
+      if(best){ doc.keys.push({ id:d.keyId, cell:best, kind:d.kind }); placed++; }
+      else stuck.push(d.id+1);
+    });
+    doc.keys.sort(function(a,b){ return a.id-b.id; });
+    return { placed:placed, stuck:stuck };
+  }
+
+  /* ---- drawing ---- */
+  var cv=el("cv"), ctx=cv.getContext("2d");
+  /* bounds-checked, exactly as the game does it — the border blocks index
+     one cell outside the grid and must come back closed, not undefined */
+  function openAt(x,y,dir){
+    if(x<0||y<0||x>=doc.size.w||y>=doc.size.h) return false;
+    return !!(doc.open[y][x]&dir);
+  }
+  function isWallBlock(bx,by){
+    var w=doc.size.w,h=doc.size.h;
+    if(bx<0||by<0||bx>2*w||by>2*h) return true;
+    var ox=bx%2, oy=by%2;
+    if(ox===1&&oy===1) return false;
+    if(ox===0&&oy===0) return true;
+    if(ox===0&&oy===1) return !openAt(bx/2-1,(by-1)/2,E);
+    if(ox===1&&oy===0) return !openAt((bx-1)/2,by/2-1,S);
+    return true;
+  }
+  function draw(){
+    var w=doc.size.w,h=doc.size.h;
+    cv.width=(2*w+1)*B; cv.height=(2*h+1)*B;
+    ctx.imageSmoothingEnabled=false;
+    for(var by=0;by<=2*h;by++) for(var bx=0;bx<=2*w;bx++){
+      var X=bx*B, Y=by*B;
+      if(isWallBlock(bx,by)){
+        ctx.fillStyle="#24408C"; ctx.fillRect(X,Y,B,B);
+        ctx.fillStyle="#4A78D8"; ctx.fillRect(X,Y,B,2);
+        ctx.fillStyle="#12225A"; ctx.fillRect(X,Y+B-2,B,2);
+      } else {
+        ctx.fillStyle="#0A1038"; ctx.fillRect(X,Y,B,B);
+        if((bx+by)%2===0){ ctx.fillStyle="#141C4E"; ctx.fillRect(X+B/2-1,Y+B/2-1,2,2); }
+      }
+    }
+    ctx.font="8px monospace";
+    function cellPx(c){ return {x:(2*c.x+1)*B, y:(2*c.y+1)*B}; }
+    var sp=cellPx(doc.spawn);
+    ctx.fillStyle="#46E0E0"; ctx.fillRect(sp.x+3,sp.y+3,B-6,B-6);
+    ctx.fillStyle="#040A22"; ctx.fillText("S",sp.x+4,sp.y+10);
+    var ex=cellPx(doc.exit);
+    ctx.fillStyle="#FFD52E"; ctx.fillRect(ex.x+2,ex.y+2,B-4,B-4);
+    ctx.fillStyle="#040A22"; ctx.fillText("X",ex.x+4,ex.y+10);
+    ctx.font="7px monospace";
+    doc.keys.forEach(function(k){
+      var p=cellPx(k.cell);
+      ctx.fillStyle = k.kind==="math" ? "#FFD52E" : "#FF6BB3";
+      ctx.fillRect(p.x+2,p.y+4,B-4,B-8);
+      ctx.fillStyle="#040A22"; ctx.fillText(String(k.id+1),p.x+5,p.y+10);
+    });
+    doc.doors.forEach(function(d){
+      var bx,by;
+      if(d.side==="E"){ bx=2*d.cell.x+2; by=2*d.cell.y+1; }
+      else { bx=2*d.cell.x+1; by=2*d.cell.y+2; }
+      var X=bx*B, Y=by*B;
+      ctx.fillStyle="#A9713C"; ctx.fillRect(X,Y,B,B);
+      ctx.fillStyle = d.kind==="math" ? "#FFD52E" : "#FF6BB3";
+      ctx.fillRect(X,Y,B,3);
+      ctx.fillStyle="#040A22"; ctx.fillText(String(d.id+1),X+4,Y+11);
+    });
+    showJson();
+  }
+
+  /* ---- input ---- */
+  function hit(ev){
+    var r=cv.getBoundingClientRect();
+    var sx=cv.width/r.width, sy=cv.height/r.height;
+    var bx=Math.floor((ev.clientX-r.left)*sx/B), by=Math.floor((ev.clientY-r.top)*sy/B);
+    var ox=bx%2, oy=by%2;
+    if(ox===1&&oy===1) return {kind:"cell", x:(bx-1)/2, y:(by-1)/2};
+    if(ox===0&&oy===1&&bx>0) return {kind:"edge", x:bx/2-1, y:(by-1)/2, dir:E};
+    if(ox===1&&oy===0&&by>0) return {kind:"edge", x:(bx-1)/2, y:by/2-1, dir:S};
+    return null;
+  }
+  function say(msg,bad){
+    var r=el("report");
+    r.className="report"+(bad?" bad":"");
+    r.textContent=msg;
+  }
+  cv.addEventListener("pointerdown",function(ev){
+    ev.preventDefault();
+    var t=hit(ev); if(!t) return;
+    var err=null;
+    if(tool==="wall"){
+      if(t.kind==="edge") toggleEdge(t.x,t.y,t.dir);
+      else err="walls go between cells — click the line, not the square";
+    } else if(tool==="spawn"){
+      if(t.kind==="cell") doc.spawn={x:t.x,y:t.y}; else err="the start goes in a cell";
+    } else if(tool==="exit"){
+      if(t.kind==="cell") doc.exit={x:t.x,y:t.y}; else err="the exit goes in a cell";
+    } else if(tool==="doorNum"||tool==="doorWord"){
+      if(t.kind==="edge") err=placeDoor(t.x,t.y,t.dir,tool==="doorNum"?"math":"language");
+      else err="a lock goes in a doorway between cells";
+    } else if(tool==="keyNum"||tool==="keyWord"){
+      if(t.kind==="cell") err=placeKey(t.x,t.y,tool==="keyNum"?"math":"language");
+      else err="a key goes in a cell";
+    } else if(tool==="erase"){
+      if(t.kind==="cell") eraseAt(t.x,t.y,null); else eraseAt(t.x,t.y,t.dir);
+    }
+    draw();
+    if(err) say(err,true);
+  });
+
+  var TOOLS=[
+    ["wall","WALLS","Click a doorway to open or close it. Closing one takes any lock with it."],
+    ["spawn","START","Click a cell to move where the player begins."],
+    ["exit","EXIT","Click a cell to move the way out."],
+    ["doorNum","NUMBER LOCK","Click an open doorway. It pairs with the key of the same number."],
+    ["doorWord","WORD LOCK","Click an open doorway. It pairs with the key of the same number."],
+    ["keyNum","NUMBER KEY","Click a cell to drop a key."],
+    ["keyWord","WORD KEY","Click a cell to drop a key."],
+    ["erase","ERASE","Click a lock or a key to take it away."]
+  ];
+  function buildTools(){
+    var box=el("tools"); box.innerHTML="";
+    TOOLS.forEach(function(t){
+      var b=document.createElement("button");
+      var cls = t[0].indexOf("Num")>=0 ? " num" : (t[0].indexOf("Word")>=0 ? " word" : "");
+      b.className="btn sm"+cls+(tool===t[0]?" on":"");
+      b.textContent=t[1];
+      b.addEventListener("click",function(){ tool=t[0]; buildTools(); });
+      box.appendChild(b);
+    });
+    var found=TOOLS.filter(function(t){return t[0]===tool;})[0];
+    el("hint").textContent=found?found[2]:"";
+  }
+
+  /* ---- chrome ---- */
+  function showJson(){ el("json").value=JSON.stringify(doc,null,1); }
+  el("resize").addEventListener("click",function(){
+    setSize(Math.max(3,+el("w").value||9), Math.max(3,+el("h").value||7)); draw();
+  });
+  el("gen").addEventListener("click",function(){
+    doc=carve(Math.max(3,+el("w").value||9), Math.max(3,+el("h").value||7)); draw();
+    say("Generated. Add locks and keys, then CHECK.");
+  });
+  el("openAll").addEventListener("click",function(){
+    var w=doc.size.w,h=doc.size.h;
+    for(var y=0;y<h;y++) for(var x=0;x<w;x++){
+      var m=0;
+      if(y>0) m|=N; if(x<w-1) m|=E; if(y<h-1) m|=S; if(x>0) m|=W;
+      doc.open[y][x]=m;
+    }
+    draw();
+  });
+  el("closeAll").addEventListener("click",function(){
+    for(var y=0;y<doc.size.h;y++) for(var x=0;x<doc.size.w;x++) doc.open[y][x]=0;
+    doc.doors=[]; renumber(); draw();
+  });
+  el("clearItems").addEventListener("click",function(){ doc.doors=[]; doc.keys=[]; draw(); });
+  el("autokeys").addEventListener("click",function(){
+    var r=autoKeys(); renumber(); draw();
+    if(r.stuck.length){
+      say("Nowhere to put the key for lock "+r.stuck.join(", ")+
+          " — everything before it is behind another lock, or behind that one. "+
+          "Move the lock further in, or open a way round it."+
+          (r.placed?(" Placed "+r.placed+" other key(s)."):""), true);
+    } else if(r.placed){
+      say("Dropped "+r.placed+" key(s). CHECK it.");
+    } else {
+      say("Every lock already has a key.");
+    }
+  });
+  el("check").addEventListener("click",function(){
+    var v=validate(doc), r=el("report");
+    if(v.ok){
+      r.className="report ok";
+      r.innerHTML="<b>This maze can be finished.</b><br>"+doc.size.w+" x "+doc.size.h+
+        " &middot; "+doc.doors.length+" lock(s) &middot; "+doc.keys.length+" key(s)";
+    } else {
+      r.className="report bad";
+      var seen={}, list=v.problems.filter(function(p){ if(seen[p])return false; seen[p]=true; return true; });
+      r.innerHTML="<b>Not finishable yet:</b><ul>"+
+        list.map(function(p){return "<li>"+p+"</li>";}).join("")+"</ul>";
+    }
+  });
+
+  function lib(){ try{ return JSON.parse(localStorage.getItem(LIBKEY)||"[]"); }catch(e){ return []; } }
+  function setLib(a){ try{ localStorage.setItem(LIBKEY,JSON.stringify(a)); }catch(e){} }
+  function showLib(){
+    var box=el("lib"); box.innerHTML="";
+    var a=lib();
+    if(!a.length){ box.innerHTML='<p class="muted" style="font-size:.86rem">Nothing saved yet.</p>'; return; }
+    a.forEach(function(item,i){
+      var d=document.createElement("div"); d.className="libitem";
+      var s=document.createElement("span");
+      s.textContent=item.name+"  ("+item.doc.size.w+"x"+item.doc.size.h+", "+item.doc.doors.length+" locks)";
+      var open=document.createElement("button"); open.className="btn sm"; open.textContent="OPEN";
+      open.addEventListener("click",function(){
+        doc=JSON.parse(JSON.stringify(item.doc));
+        el("w").value=doc.size.w; el("h").value=doc.size.h; draw();
+      });
+      var del=document.createElement("button"); del.className="btn sm danger"; del.textContent="DELETE";
+      del.addEventListener("click",function(){ var a2=lib(); a2.splice(i,1); setLib(a2); showLib(); });
+      d.appendChild(s); d.appendChild(open); d.appendChild(del);
+      box.appendChild(d);
+    });
+  }
+  el("save").addEventListener("click",function(){
+    var v=validate(doc);
+    if(!v.ok && !confirm("This maze cannot be finished yet. Save it anyway?")) return;
+    var a=lib();
+    a.push({ name: el("name").value.trim() || ("maze "+(a.length+1)),
+             doc: JSON.parse(JSON.stringify(doc)) });
+    setLib(a); showLib();
+  });
+
+  el("copy").addEventListener("click",function(){ el("json").select(); try{document.execCommand("copy");}catch(e){} });
+  el("load").addEventListener("click",function(){
+    try{
+      var d=JSON.parse(el("json").value);
+      if(!d.size||!d.open) throw new Error("that is not a maze document");
+      doc=d; el("w").value=d.size.w; el("h").value=d.size.h; draw();
+      say("Loaded. CHECK it.");
+    }catch(e){ say("Could not load: "+e.message,true); }
+  });
+
+  doc=carve(9,7);
+  buildTools(); draw(); showLib();
+})();
+</script>
+</body>
+</html>

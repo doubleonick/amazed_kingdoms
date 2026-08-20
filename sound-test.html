@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CARRY — sound bench</title>
+<meta name="description" content="Audition every sound the game can make and choose which one it uses. Nothing is downloaded; it is all synthesised.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-hi:#5CB8FF; --sky-lo:#1B4FD6; --sky-top:#8FD4FF;
+    --panel:#0C1442; --panel-lo:#161F63; --edge:#040A22;
+    --white:#FFFFFF; --steel:#8FA3D8; --gold:#FFD52E;
+    --word:#C77DFF; --num:#FFD52E; --good:#3DDC84;
+    --pixel:"Press Start 2P",monospace;
+    --screen:"Silkscreen","Press Start 2P",monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:linear-gradient(var(--sky-top) 0%,var(--sky-hi) 30%,var(--sky-lo) 100%) fixed;
+    color:var(--white);font-family:var(--screen);font-size:16px;line-height:1.55;
+    display:flex;justify-content:center;padding:clamp(12px,3vw,28px) 12px 60px;
+  }
+  .app{width:100%;max-width:620px;display:flex;flex-direction:column;gap:14px}
+  .panel{
+    background:var(--panel);border:4px solid var(--white);
+    box-shadow:0 0 0 4px var(--edge),7px 7px 0 4px rgba(4,10,34,.42);
+    padding:clamp(12px,3vw,18px);
+  }
+  h1{font-family:var(--pixel);font-size:clamp(.8rem,3.8vw,1.1rem);margin:0;color:var(--gold);text-shadow:3px 3px 0 var(--edge)}
+  h2{font-family:var(--pixel);font-size:.6rem;margin:0 0 12px;color:var(--gold)}
+  p{margin:0 0 10px}
+  .muted{color:var(--steel)}
+  .label{font-family:var(--pixel);font-size:.46rem;letter-spacing:.06em;color:var(--steel);text-transform:uppercase}
+  .btn{
+    font-family:var(--pixel);font-size:.5rem;
+    background:var(--panel-lo);border:3px solid var(--white);
+    box-shadow:0 0 0 2px var(--edge),3px 3px 0 2px rgba(4,10,34,.42);
+    color:var(--white);padding:11px 12px;cursor:pointer;
+  }
+  .btn:active{transform:translate(2px,2px);box-shadow:0 0 0 2px var(--edge)}
+  .btn.on{background:var(--good);color:var(--edge);border-color:var(--edge)}
+  .btn.wide{width:100%;padding:15px 12px;font-size:.55rem}
+  .btn.word{background:var(--word);color:var(--edge)}
+  .btn.num{background:var(--num);color:var(--edge)}
+  .btn.big{font-size:.7rem;padding:18px 14px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .ev{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;
+      padding:9px 0;border-bottom:2px solid #23306F}
+  .ev:last-child{border-bottom:0}
+  .evname{font-family:var(--pixel);font-size:.46rem;color:var(--white)}
+  .evdesc{font-size:.82rem;color:var(--steel);grid-column:1 / -1;margin-top:-4px}
+  input[type=range]{width:150px;accent-color:var(--gold)}
+  textarea{width:100%;height:120px;background:#0A1038;color:var(--steel);
+    border:3px solid #33407F;font-family:var(--screen);font-size:.82rem;padding:8px}
+  .fail{background:#3A1015;border:3px solid #FF8A8A;padding:12px;color:#FF8A8A}
+</style>
+</head>
+<body>
+<main class="app">
+
+  <div class="panel">
+    <h1>SOUND BENCH</h1>
+    <p class="muted" style="margin-top:8px">Every sound here is generated on the spot &mdash;
+    an oscillator, an envelope, a noise channel. Nothing is downloaded and nothing
+    is licensed. Tap a candidate to hear it and to choose it.</p>
+    <div id="support"></div>
+    <div class="row" style="margin-top:12px">
+      <span class="label">Volume</span>
+      <input type="range" id="vol" min="0" max="1" step="0.05">
+      <button class="btn" id="mute">MUTE: OFF</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <span class="label">Key</span>
+      <button class="btn" data-key="-5">&minus;5</button>
+      <button class="btn" data-key="-2">&minus;2</button>
+      <button class="btn on" data-key="0">HOME</button>
+      <button class="btn" data-key="2">+2</button>
+      <button class="btn" data-key="5">+5</button>
+      <span class="muted" style="font-size:.8rem">each land can sit in its own key</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>WHOLE MOMENTS</h2>
+    <p class="muted">Single sounds mislead. These play what a child actually hears.</p>
+    <div class="row">
+      <button class="btn wide" id="scWalk">WALK A CORRIDOR, FIND A KEY</button>
+      <button class="btn wide" id="scLock">TURN A LOCK THREE TIMES, DOOR OPENS</button>
+      <button class="btn wide" id="scMiss">GET ONE WRONG, THEN RIGHT</button>
+      <button class="btn wide" id="scGate">PASS A GATE, SET A STONE, NEW LAND</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>THE TWO MOTIFS</h2>
+    <p class="muted">The Wordsmith line steps; the Numbersmith line is built from a chord.
+    Together every beat is consonant &mdash; a fifth, a fourth, a third &mdash; and they
+    finish on the same note. That is what the keystone plays.</p>
+    <div class="row">
+      <button class="btn word" id="mWord">WORDSMITH</button>
+      <button class="btn num" id="mNum">NUMBERSMITH</button>
+      <button class="btn big" id="mBoth" style="background:#fff;color:var(--edge)">BOTH &mdash; THE KEYSTONE</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>EVERY SOUND</h2>
+    <div id="events"></div>
+  </div>
+
+  <div class="panel">
+    <h2>WHAT THE GAME WILL USE</h2>
+    <p class="muted">Saved automatically. This is only here so you can see it or copy it.</p>
+    <div class="row"><button class="btn" id="reset">BACK TO DEFAULTS</button></div>
+    <textarea id="cfg" readonly style="margin-top:12px"></textarea>
+  </div>
+
+</main>
+
+<script src="sound.js"></script>
+<script>
+(function(){
+  "use strict";
+  var el=function(i){return document.getElementById(i);};
+  var S=window.Sound;
+
+  if(!S){
+    document.querySelector(".app").innerHTML=
+      '<div class="panel fail"><b>sound.js did not load.</b> It needs to sit in the '+
+      'same folder as this file.</div>';
+    return;
+  }
+  el("support").innerHTML = S.available()
+    ? '<span class="label" style="color:#3DDC84">WEB AUDIO AVAILABLE</span>'
+    : '<div class="fail">This browser has no Web Audio. The game will run silently.</div>';
+
+  var DESC={
+    step:"Every footfall. It has to be almost not there, or it will drive a room mad.",
+    bump:"Walking into a wall.",
+    key:"Picking up a key. A small prize.",
+    lockTurn:"One correct answer at a door. Mechanical, and it should feel like progress.",
+    doorOpen:"The lock is finished and something releases.",
+    right:"A correct answer inside a lock.",
+    wrong:"A wrong answer. A child hears this a lot, so it must not sting.",
+    stone:"A gate is passed and a stone lands in the bridge. The heaviest sound in the game.",
+    gateWord:"The Wordsmith motif, played when a word gate opens.",
+    gateNumber:"The Numbersmith motif, played when a number gate opens.",
+    newLand:"The next land is revealed.",
+    win:"The keystone is set and the bridge stands."
+  };
+
+  function build(){
+    var box=el("events"); box.innerHTML="";
+    S.events().forEach(function(ev){
+      var row=document.createElement("div"); row.className="ev";
+      var name=document.createElement("div"); name.className="evname"; name.textContent=ev;
+      var opts=document.createElement("div"); opts.className="row";
+      S.variants(ev).forEach(function(v){
+        var b=document.createElement("button");
+        b.type="button";
+        b.className="btn"+(S.choice(ev)===v?" on":"");
+        b.textContent=v;
+        b.addEventListener("click",function(){
+          S.setChoice(ev,v);
+          S.play(ev,v);
+          build(); showCfg();
+        });
+        opts.appendChild(b);
+      });
+      var d=document.createElement("div"); d.className="evdesc"; d.textContent=DESC[ev]||"";
+      row.appendChild(name); row.appendChild(opts); row.appendChild(d);
+      box.appendChild(row);
+    });
+  }
+  function showCfg(){ el("cfg").value=JSON.stringify(S.config(),null,1); }
+
+  /* ---- scenes: sequences of real events, which is how they are judged ---- */
+  function at(ms,fn){ setTimeout(fn,ms); }
+  el("scWalk").addEventListener("click",function(){
+    for(var i=0;i<7;i++) at(i*170,function(){ S.play("step"); });
+    at(7*170+60,function(){ S.play("bump"); });
+    at(7*170+700,function(){ S.play("step"); });
+    at(7*170+880,function(){ S.play("step"); });
+    at(7*170+1100,function(){ S.play("key"); });
+  });
+  el("scLock").addEventListener("click",function(){
+    at(0,   function(){ S.play("right"); });
+    at(180, function(){ S.play("lockTurn"); });
+    at(900, function(){ S.play("right"); });
+    at(1080,function(){ S.play("lockTurn"); });
+    at(1800,function(){ S.play("right"); });
+    at(1980,function(){ S.play("lockTurn"); });
+    at(2500,function(){ S.play("doorOpen"); });
+  });
+  el("scMiss").addEventListener("click",function(){
+    at(0,   function(){ S.play("wrong"); });
+    at(1400,function(){ S.play("right"); });
+    at(1580,function(){ S.play("lockTurn"); });
+  });
+  el("scGate").addEventListener("click",function(){
+    for(var i=0;i<4;i++) (function(i){
+      at(i*620,      function(){ S.play("right"); });
+      at(i*620+170,  function(){ S.play("lockTurn"); });
+    })(i);
+    at(2700,function(){ S.play("gateWord"); });
+    at(3500,function(){ S.play("stone"); });
+    at(4600,function(){ S.play("newLand"); });
+  });
+
+  el("mWord").addEventListener("click",function(){ S.play("gateWord"); });
+  el("mNum").addEventListener("click",function(){ S.play("gateNumber"); });
+  el("mBoth").addEventListener("click",function(){ S.play("win","united"); });
+
+  el("vol").value=S.volume();
+  el("vol").addEventListener("input",function(){ S.volume(parseFloat(this.value)); S.play("step"); });
+  function paintMute(){ el("mute").textContent="MUTE: "+(S.muted()?"ON":"OFF");
+                        el("mute").className="btn"+(S.muted()?" on":""); }
+  el("mute").addEventListener("click",function(){ S.mute(!S.muted()); paintMute(); showCfg(); });
+  paintMute();
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-key]"),function(b){
+    b.addEventListener("click",function(){
+      S.setKey(parseInt(b.getAttribute("data-key"),10));
+      Array.prototype.forEach.call(document.querySelectorAll("[data-key]"),function(x){ x.className="btn"; });
+      b.className="btn on";
+      S.play("key");
+    });
+  });
+
+  el("reset").addEventListener("click",function(){
+    var d=S.defaults();
+    Object.keys(d).forEach(function(k){ S.setChoice(k,d[k]); });
+    build(); showCfg();
+  });
+
+  build();
+  showCfg();
+})();
+</script>
+</body>
+</html>

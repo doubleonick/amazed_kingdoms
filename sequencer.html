@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CARRY — sequencer</title>
+<meta name="description" content="Write the game's tunes on a step grid. Four channels, scale-locked so it stays consonant, saved straight into the game.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#8FD4FF; --sky-hi:#5CB8FF; --sky-lo:#1B4FD6;
+    --panel:#0C1442; --panel-lo:#161F63; --edge:#040A22;
+    --white:#FFFFFF; --steel:#8FA3D8; --gold:#FFD52E;
+    --t0:#FF6BB3; --t1:#FFD52E; --t2:#3DDC84; --t3:#8FA3D8;
+    --pixel:"Press Start 2P",monospace;
+    --screen:"Silkscreen","Press Start 2P",monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:linear-gradient(var(--sky-top) 0%,var(--sky-hi) 30%,var(--sky-lo) 100%) fixed;
+    color:var(--white);font-family:var(--screen);font-size:16px;line-height:1.5;
+    display:flex;justify-content:center;padding:clamp(12px,3vw,28px) 12px 60px;
+  }
+  .app{width:100%;max-width:760px;display:flex;flex-direction:column;gap:14px}
+  .panel{background:var(--panel);border:4px solid var(--white);
+    box-shadow:0 0 0 4px var(--edge),7px 7px 0 4px rgba(4,10,34,.42);padding:clamp(12px,3vw,18px)}
+  h1{font-family:var(--pixel);font-size:clamp(.8rem,3.8vw,1.1rem);margin:0;color:var(--gold);text-shadow:3px 3px 0 var(--edge)}
+  h2{font-family:var(--pixel);font-size:.58rem;margin:0 0 12px;color:var(--gold)}
+  p{margin:0 0 10px}
+  .muted{color:var(--steel)}
+  .label{font-family:var(--pixel);font-size:.44rem;letter-spacing:.06em;color:var(--steel);text-transform:uppercase}
+  .btn{font-family:var(--pixel);font-size:.48rem;background:var(--panel-lo);
+    border:3px solid var(--white);box-shadow:0 0 0 2px var(--edge),3px 3px 0 2px rgba(4,10,34,.42);
+    color:var(--white);padding:10px 11px;cursor:pointer}
+  .btn:active{transform:translate(2px,2px);box-shadow:0 0 0 2px var(--edge)}
+  .btn.on{background:#3DDC84;color:var(--edge);border-color:var(--edge)}
+  .btn.go{background:#0E9F4F}
+  .btn.sm{font-size:.4rem;padding:7px 8px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  select,input[type=range]{font-family:var(--screen);font-size:.9rem}
+  select{background:#0A1038;color:#fff;border:3px solid #33407F;padding:6px}
+  input[type=range]{width:130px;accent-color:var(--gold)}
+
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .tab{font-family:var(--pixel);font-size:.44rem;padding:9px 10px;cursor:pointer;
+    border:3px solid var(--edge);background:#0A1038;color:var(--steel)}
+  .tab.sel{color:var(--edge)}
+  .tab.c0.sel{background:var(--t0)} .tab.c1.sel{background:var(--t1)}
+  .tab.c2.sel{background:var(--t2)} .tab.c3.sel{background:var(--t3)}
+  .tab.muted{opacity:.4}
+
+  .gridwrap{overflow-x:auto;border:3px solid var(--edge);background:#070C22}
+  table.grid{border-collapse:collapse}
+  table.grid td{padding:0}
+  .nl{font-family:var(--pixel);font-size:.38rem;color:var(--steel);
+    padding:0 7px 0 5px;white-space:nowrap;text-align:right;background:#0A1038}
+  .cell{width:22px;height:20px;border:1px solid #1A2350;background:#0D1330;cursor:pointer}
+  .cell.beat{background:#131B44}
+  .cell.on{border-color:var(--white)}
+  .cell.on.c0{background:var(--t0)} .cell.on.c1{background:var(--t1)}
+  .cell.on.c2{background:var(--t2)} .cell.on.c3{background:var(--t3)}
+  .cell.ghost{box-shadow:inset 0 0 0 2px rgba(255,255,255,.22)}
+  .cell.head{background:#2C3878}
+  .steps td{font-family:var(--pixel);font-size:.34rem;color:var(--steel);text-align:center;padding:3px 0}
+  textarea{width:100%;height:150px;background:#0A1038;color:var(--steel);
+    border:3px solid #33407F;font-family:var(--screen);font-size:.8rem;padding:8px}
+  .fail{background:#3A1015;border:3px solid #FF8A8A;padding:12px;color:#FF8A8A}
+</style>
+</head>
+<body>
+<main class="app">
+
+  <div class="panel">
+    <h1>SEQUENCER</h1>
+    <p class="muted" style="margin-top:8px">Four channels on a step grid. The rows are
+    locked to a scale, so anything you write stays consonant &mdash; move a note and it
+    still fits. Save a pattern to a game event and the game plays it instead of the
+    built-in sound.</p>
+    <div id="support"></div>
+  </div>
+
+  <div class="panel">
+    <h2>TRANSPORT</h2>
+    <div class="row">
+      <button class="btn go" id="play">PLAY</button>
+      <button class="btn" id="loop">LOOP: OFF</button>
+      <button class="btn" id="stop">STOP</button>
+      <span class="label">BPM</span><input type="range" id="bpm" min="60" max="200" step="2">
+      <span class="label" id="bpmOut">132</span>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <span class="label">Steps</span>
+      <button class="btn sm" data-steps="8">8</button>
+      <button class="btn sm" data-steps="16">16</button>
+      <button class="btn sm" data-steps="32">32</button>
+      <span class="label" style="margin-left:12px">Key</span>
+      <select id="key"></select>
+      <select id="scale">
+        <option value="major">major</option>
+        <option value="minor">minor</option>
+        <option value="pent">pentatonic</option>
+        <option value="chrom">chromatic</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>CHANNELS</h2>
+    <div class="tabs" id="tabs"></div>
+    <div class="row">
+      <span class="label">Wave</span>
+      <select id="wave">
+        <option value="square">square</option>
+        <option value="triangle">triangle</option>
+        <option value="sawtooth">sawtooth</option>
+        <option value="sine">sine</option>
+        <option value="noise">noise</option>
+      </select>
+      <span class="label">Vol</span><input type="range" id="vol" min="0" max="0.4" step="0.01">
+      <span class="label">Length</span><input type="range" id="gate" min="0.3" max="3" step="0.1">
+      <button class="btn sm" id="mute">MUTE</button>
+      <button class="btn sm" id="clearTrack">CLEAR</button>
+    </div>
+    <div class="gridwrap" style="margin-top:12px"><div id="grid"></div></div>
+    <p class="muted" style="margin-top:10px;font-size:.85rem">Click to place a note, click again
+    to remove. Drag to paint. Other channels show as a faint outline so you can write against them.</p>
+  </div>
+
+  <div class="panel">
+    <h2>START FROM</h2>
+    <div class="row">
+      <button class="btn" data-preset="word">WORDSMITH MOTIF</button>
+      <button class="btn" data-preset="number">NUMBERSMITH MOTIF</button>
+      <button class="btn" data-preset="both">BOTH AT ONCE</button>
+      <button class="btn" data-preset="blank">EMPTY</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>USE IT IN THE GAME</h2>
+    <div class="row">
+      <select id="event"></select>
+      <button class="btn go" id="assign">SAVE TO EVENT</button>
+      <button class="btn" id="unassign">REMOVE</button>
+      <button class="btn" id="hearEvent">HEAR EVENT</button>
+    </div>
+    <p class="muted" id="assigned" style="margin-top:10px"></p>
+  </div>
+
+  <div class="panel">
+    <h2>PATTERN</h2>
+    <div class="row">
+      <button class="btn" id="copy">COPY</button>
+      <button class="btn" id="paste">LOAD FROM BOX</button>
+    </div>
+    <textarea id="json" spellcheck="false" style="margin-top:12px"></textarea>
+  </div>
+
+</main>
+
+<script src="sound.js"></script>
+<script>
+(function(){
+  "use strict";
+  var el=function(i){return document.getElementById(i);};
+  var S=window.Sound;
+  if(!S){ document.querySelector(".app").innerHTML=
+    '<div class="panel fail"><b>sound.js did not load.</b> It must sit in the same folder.</div>'; return; }
+  el("support").innerHTML = S.available()
+    ? '<span class="label" style="color:#3DDC84">WEB AUDIO AVAILABLE</span>'
+    : '<div class="fail">No Web Audio in this browser.</div>';
+
+  var SCALES={ major:[0,2,4,5,7,9,11], minor:[0,2,3,5,7,8,10],
+               pent:[0,2,4,7,9], chrom:[0,1,2,3,4,5,6,7,8,9,10,11] };
+  var COLOURS=["c0","c1","c2","c3"];
+
+  var pat={ v:1, name:"untitled", bpm:132, steps:16, key:60, scale:"major",
+    tracks:[
+      { wave:"square",   vol:0.22, gate:1.6, rows:[] },
+      { wave:"sawtooth", vol:0.17, gate:1.6, lp:2200, rows:[] },
+      { wave:"triangle", vol:0.20, gate:2.2, rows:[] },
+      { wave:"noise",    vol:0.13, gate:0.6, rows:[] }
+    ]};
+  var cur=0, looping=false, timer=null, playAt=0, stepTimer=null;
+
+  function rowsOf(){
+    /* the chosen scale climbing from the key, then flipped so the highest
+       note sits at the top of the grid the way a stave reads */
+    var sc=SCALES[pat.scale]||SCALES.major, out=[];
+    for(var oct=0;oct<3;oct++)
+      for(var i=0;i<sc.length;i++) out.push(pat.key+sc[i]+oct*12);
+    out=out.slice(0, pat.scale==="chrom"?25:15);
+    return out.reverse();
+  }
+  function ensure(){
+    pat.tracks.forEach(function(t){
+      t.rows = t.rows || [];
+      t.rows.length = pat.steps;
+      for(var i=0;i<pat.steps;i++) if(t.rows[i]===undefined) t.rows[i]=null;
+    });
+  }
+
+  /* ---- grid ---- */
+  var painting=false, paintTo=null;
+  function build(){
+    ensure();
+    var notes=rowsOf();
+    var t=document.createElement("table"); t.className="grid";
+    var head=document.createElement("tr"); head.className="steps";
+    head.appendChild(document.createElement("td"));
+    for(var s=0;s<pat.steps;s++){
+      var th=document.createElement("td"); th.textContent=(s%4===0)?(s/4+1):"";
+      th.id="step"+s; head.appendChild(th);
+    }
+    t.appendChild(head);
+    notes.forEach(function(midi){
+      var tr=document.createElement("tr");
+      var lab=document.createElement("td"); lab.className="nl"; lab.textContent=S.midiName(midi);
+      tr.appendChild(lab);
+      for(var s=0;s<pat.steps;s++){
+        var td=document.createElement("td");
+        var c=document.createElement("div");
+        c.className="cell"+(s%4===0?" beat":"");
+        var name=S.midiName(midi);
+        if(pat.tracks[cur].rows[s]===name) c.className+=" on "+COLOURS[cur];
+        else for(var k=0;k<4;k++) if(k!==cur && pat.tracks[k].rows[s]===name){ c.className+=" ghost"; break; }
+        (function(s,name,c){
+          c.addEventListener("pointerdown",function(e){
+            e.preventDefault();
+            var isOn = pat.tracks[cur].rows[s]===name;
+            paintTo = isOn ? null : name;
+            painting = true;
+            pat.tracks[cur].rows[s]=paintTo;
+            if(paintTo) preview(name);
+            build();
+          });
+          c.addEventListener("pointerenter",function(){
+            if(!painting) return;
+            pat.tracks[cur].rows[s]=paintTo;
+            build();
+          });
+        })(s,name,c);
+        td.appendChild(c); tr.appendChild(td);
+      }
+      t.appendChild(tr);
+    });
+    var g=el("grid"); g.innerHTML=""; g.appendChild(t);
+    showJson();
+  }
+  document.addEventListener("pointerup",function(){ painting=false; });
+
+  function preview(name){
+    var tr=pat.tracks[cur];
+    S.playPattern({ v:1,bpm:pat.bpm,steps:1,
+      tracks:[{wave:tr.wave,vol:tr.vol,gate:tr.gate,lp:tr.lp,q:tr.q,rows:[name]}] });
+  }
+
+  /* ---- transport ---- */
+  function lengthMs(){ return (pat.steps*(60/pat.bpm/4))*1000; }
+  function run(){
+    S.playPattern(pat);
+    var spb=lengthMs()/pat.steps, i=0;
+    clearInterval(stepTimer);
+    stepTimer=setInterval(function(){
+      for(var s=0;s<pat.steps;s++){
+        var e=el("step"+s); if(e) e.style.color = (s===i) ? "#FFD52E" : "";
+      }
+      i++; if(i>=pat.steps){ i=0; if(!looping){ clearInterval(stepTimer);
+        for(var s2=0;s2<pat.steps;s2++){ var e2=el("step"+s2); if(e2) e2.style.color=""; } } }
+    }, spb);
+    if(looping){ clearTimeout(timer); timer=setTimeout(run, lengthMs()); }
+  }
+  el("play").addEventListener("click",run);
+  el("loop").addEventListener("click",function(){
+    looping=!looping;
+    this.textContent="LOOP: "+(looping?"ON":"OFF");
+    this.className="btn"+(looping?" on":"");
+    if(looping) run(); else clearTimeout(timer);
+  });
+  el("stop").addEventListener("click",function(){
+    looping=false; el("loop").textContent="LOOP: OFF"; el("loop").className="btn";
+    clearTimeout(timer); clearInterval(stepTimer);
+    for(var s=0;s<pat.steps;s++){ var e=el("step"+s); if(e) e.style.color=""; }
+  });
+  el("bpm").value=pat.bpm;
+  el("bpm").addEventListener("input",function(){ pat.bpm=+this.value; el("bpmOut").textContent=this.value; showJson(); });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-steps]"),function(b){
+    b.addEventListener("click",function(){ pat.steps=+b.getAttribute("data-steps"); build(); });
+  });
+
+  /* ---- key and scale: the pattern keeps its shape ---- */
+  var keySel=el("key");
+  for(var m=55;m<=67;m++){
+    var o=document.createElement("option"); o.value=m; o.textContent=S.midiName(m); keySel.appendChild(o);
+  }
+  keySel.value=pat.key;
+  function remap(oldNotes){
+    var neu=rowsOf();
+    pat.tracks.forEach(function(t){
+      t.rows=t.rows.map(function(n){
+        if(!n) return null;
+        var idx=oldNotes.indexOf(S.nameToMidi(n));
+        return idx>=0 && neu[idx]!=null ? S.midiName(neu[idx]) : n;
+      });
+    });
+  }
+  keySel.addEventListener("change",function(){ var old=rowsOf(); pat.key=+this.value; remap(old); build(); });
+  el("scale").addEventListener("change",function(){ var old=rowsOf(); pat.scale=this.value; remap(old); build(); });
+
+  /* ---- channels ---- */
+  function buildTabs(){
+    var box=el("tabs"); box.innerHTML="";
+    pat.tracks.forEach(function(t,i){
+      var b=document.createElement("button");
+      b.className="tab "+COLOURS[i]+(i===cur?" sel":"")+(t.mute?" muted":"");
+      b.textContent=(i+1)+"  "+t.wave;
+      b.addEventListener("click",function(){ cur=i; syncTrack(); buildTabs(); build(); });
+      box.appendChild(b);
+    });
+  }
+  function syncTrack(){
+    var t=pat.tracks[cur];
+    el("wave").value=t.wave; el("vol").value=t.vol; el("gate").value=t.gate;
+    el("mute").className="btn sm"+(t.mute?" on":"");
+  }
+  el("wave").addEventListener("change",function(){ pat.tracks[cur].wave=this.value; buildTabs(); showJson(); });
+  el("vol").addEventListener("input",function(){ pat.tracks[cur].vol=+this.value; showJson(); });
+  el("gate").addEventListener("input",function(){ pat.tracks[cur].gate=+this.value; showJson(); });
+  el("mute").addEventListener("click",function(){ pat.tracks[cur].mute=!pat.tracks[cur].mute; syncTrack(); buildTabs(); showJson(); });
+  el("clearTrack").addEventListener("click",function(){ pat.tracks[cur].rows=[]; build(); });
+
+  /* ---- presets: the two motifs, as a starting point ---- */
+  var M=S.motifs();
+  function fromNotes(list,trackIdx,spacing){
+    pat.tracks.forEach(function(t){ t.rows=[]; });
+    ensure();
+    list.forEach(function(f,i){
+      var midi=Math.round(69+12*Math.log2(f/440));
+      pat.tracks[trackIdx].rows[i*spacing]=S.midiName(midi);
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(b){
+    b.addEventListener("click",function(){
+      var p=b.getAttribute("data-preset");
+      pat.steps=16; pat.key=60; pat.scale="major"; keySel.value=60; el("scale").value="major";
+      if(p==="word")   fromNotes(M.wordsmith,0,4);
+      if(p==="number") fromNotes(M.numbersmith,1,4);
+      if(p==="both"){  fromNotes(M.wordsmith,0,4);
+                       M.numbersmith.forEach(function(f,i){
+                         var midi=Math.round(69+12*Math.log2(f/440));
+                         pat.tracks[1].rows[i*4]=S.midiName(midi); }); }
+      if(p==="blank")  pat.tracks.forEach(function(t){ t.rows=[]; });
+      build(); buildTabs(); syncTrack();
+    });
+  });
+
+  /* ---- assign to a game event ---- */
+  var evSel=el("event");
+  S.events().forEach(function(e){
+    var o=document.createElement("option"); o.value=e; o.textContent=e; evSel.appendChild(o);
+  });
+  function showAssigned(){
+    var keys=Object.keys(S.patterns());
+    el("assigned").textContent = keys.length
+      ? "Events using a written pattern: "+keys.join(", ")
+      : "No events are using a written pattern yet; the game uses its built-in sounds.";
+  }
+  el("assign").addEventListener("click",function(){
+    pat.name=evSel.value;
+    S.setPattern(evSel.value, JSON.parse(JSON.stringify(pat)));
+    showAssigned();
+  });
+  el("unassign").addEventListener("click",function(){ S.setPattern(evSel.value,null); showAssigned(); });
+  el("hearEvent").addEventListener("click",function(){ S.play(evSel.value); });
+
+  /* ---- import and export ---- */
+  function showJson(){ el("json").value=JSON.stringify(pat,null,1); }
+  el("copy").addEventListener("click",function(){ el("json").select(); try{document.execCommand("copy");}catch(e){} });
+  el("paste").addEventListener("click",function(){
+    try{
+      var p=JSON.parse(el("json").value);
+      if(!p.tracks) throw new Error("no tracks");
+      pat=p; keySel.value=pat.key||60; el("scale").value=pat.scale||"major";
+      el("bpm").value=pat.bpm; el("bpmOut").textContent=pat.bpm;
+      build(); buildTabs(); syncTrack();
+    }catch(e){ alert("That is not a pattern: "+e.message); }
+  });
+
+  buildTabs(); syncTrack(); build(); showAssigned();
+})();
+</script>
+</body>
+</html>
