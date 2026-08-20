@@ -1,15 +1,18 @@
 # FILES — Am+zed Kingdoms
 
-Everything below goes in **one folder**, beside `maze.html`. A missing `.js`
-file does not break the page: it 404s quietly and that lock falls back to a
-placeholder that opens on any keypress. If the game looks like it has reverted,
-a file is missing — and the game now says which one in a red box, bottom left.
+Everything below goes in **one folder, flat** — beside `index.html`, not in a
+subfolder. That is also what GitHub Pages needs.
 
-## The game needs all of these
+A missing `.js` file does not break the page: it 404s quietly and that lock
+falls back to a placeholder that opens on any keypress. If the game looks like
+it has reverted, a file is missing — and the game names it in a red box, bottom
+left, and in the browser console.
+
+## The game
 
 | file | what breaks without it |
 | --- | --- |
-| `maze.html` | — the game itself |
+| `index.html` | — the game itself |
 | `math-challenge.js` | number doors become placeholders |
 | `word-challenge.js` | word doors become placeholders |
 | `word-sentences.js` | the Wordsmith gate cannot run |
@@ -23,19 +26,30 @@ a file is missing — and the game now says which one in a red box, bottom left.
 | `castle.js` | no castles, keys or bridge stones |
 | `intro.js` | the story never plays |
 
-## The tools, opened from inside the game
+## The tools
 
 | file | |
 | --- | --- |
-| `sound-test.html` | choose each sound |
-| `sequencer.html` | write tunes |
+| `sound-test.html` | choose each sound — opens inside the game |
+| `sequencer.html` | write tunes — opens inside the game |
 | `maze-editor.html` | draw mazes by hand |
-| `index.html` | the number drill on its own |
+| `numbers.html` | the number drill on its own |
 | `words.html` | the word drill on its own |
 | `speech-test.html` | diagnose a device with no voice |
 | `check-sentences.js` | run with node after editing carriers |
 
-## What `maze.html` actually asks for
+## Publishing to GitHub Pages
+
+1. New repo. Everything at the **root**, flat.
+2. Push.
+3. **Settings → Pages → Deploy from a branch → `main` → `/ (root)`.**
+4. Visit `https://USERNAME.github.io/REPO/` — `index.html` is the game, so the
+   bare link lands on it.
+
+No build step. Pages is case-sensitive where Windows is not, so filenames must
+match exactly; they currently do.
+
+## What `index.html` asks for
 
 ```
   profile.js
@@ -51,5 +65,3 @@ a file is missing — and the game now says which one in a red box, bottom left.
   sound.js
   intro.js
 ```
-
-If a name above is not in your folder, that is the fault.

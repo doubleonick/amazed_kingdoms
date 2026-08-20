@@ -4,7 +4,7 @@ Adaptive addition and subtraction flash cards. One file, no build step, no depen
 
 ## Put it online
 
-1. New GitHub repo, drop `index.html` in the root.
+1. New GitHub repo, everything at the root, flat. `index.html` is the game.
 2. **Settings → Pages** → Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
 3. Live at `https://<username>.github.io/<repo>/` within a minute or two.
 
@@ -38,7 +38,7 @@ The equation sits directly under the HUD. A zone panel used to occupy that spot,
 showing the place chart and a difficulty index like `6 / 14` — the position among the
 fourteen (places x regrouping) combinations, ordered by expected solve time. That index
 isn't legible to a child, and the panel pushed the equation too far down the screen, so
-the whole block is commented out in `index.html`.
+the whole block is commented out in `numbers.html`.
 
 None of the zone *logic* changed. The adapter still tracks places and regrouping, moves
 between them, and saves the state; `drawMeter()` simply returns early when the markup
@@ -203,7 +203,7 @@ runs where storage is blocked.
 
 | file | what it is |
 | --- | --- |
-| `maze.html` | the journey: mazes, keys, locks, gates, the bridge. **Start here.** |
+| `index.html` | the journey: mazes, keys, locks, gates, the bridge. **Start here.** |
 | `math-challenge.js` | the number drill, mountable |
 | `word-challenge.js` | the sight-word drill, mountable |
 | `word-sentences.js` | carrier sentences for the word gate |
@@ -253,7 +253,7 @@ weight comes from what it takes and what it gives, not from risk of loss.
 **Each gate also opens the next land**, so the reward is a stone *and* a change of
 scenery for the three mazes that follow. There are seven palettes and they are
 **unnamed**: earlier drafts used names that sat too close to another game's level
-titles, so they are gone. Set `name` on a theme in `maze.html` and it appears in
+titles, so they are gone. Set `name` on a theme in `index.html` and it appears in
 the top-right of the sky; leave it empty and no land name is shown at all. The
 `id` is internal and never displayed.
 
@@ -774,7 +774,7 @@ and mute stay put.
 
 ## If the locks look like placeholders
 
-Every `.js` file must sit in the **same folder** as `maze.html`. A missing one
+Every `.js` file must sit in the **same folder** as `index.html`. A missing one
 404s quietly and that lock falls back to a placeholder that opens on any
 keypress — deliberate, so a half-built game still runs, but it makes a finished
 folder with a missing file look as though the game has reverted.

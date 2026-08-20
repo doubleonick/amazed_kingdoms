@@ -3,136 +3,2128 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Am+zed Kingdoms — numbers</title>
-<meta name="description" content="Long-form arithmetic drill. Place values are colour-coded and difficulty adapts per operation.">
+<title>Am+zed Kingdoms</title>
+<meta name="description" content="Two kingdoms, a maze between them, and a bridge to finish. Sums at some doors, words at others.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  /* This page is only a frame. The drill brings its own markup and styles;
-     see math-challenge.js. Everything here is page chrome. */
   :root{
-    --sky-hi:#5CB8FF; --sky-lo:#1B4FD6;
-    --panel:#0C1442; --edge:#040A22;
+    --sky-top:#8FD4FF; --sky-hi:#5CB8FF; --sky-lo:#1B4FD6;
+    --panel:#0C1442; --panel-lo:#161F63; --edge:#040A22;
     --white:#FFFFFF; --steel:#8FA3D8; --gold:#FFD52E;
     --checker-a:#31A94F; --checker-b:#22833C;
     --pixel:"Press Start 2P",monospace;
     --screen:"Silkscreen","Press Start 2P",monospace;
   }
   *{box-sizing:border-box}
-  html{-webkit-text-size-adjust:100%}
+  html,body{overflow-x:hidden}
   body{
     margin:0;min-height:100%;
-    background:linear-gradient(#8FD4FF 0%,var(--sky-hi) 28%,var(--sky-lo) 100%) fixed;
+    background:#0C1442;
     color:var(--white);font-family:var(--screen);font-size:16px;line-height:1.55;
     image-rendering:pixelated;
     display:flex;justify-content:center;
-    padding:clamp(12px,3.5vw,32px) 12px 120px;
+    /* sky above the game column, for the title to hang in */
+    /* sky above for the title, and only as much below as the ground needs —
+       the rest of that space is where the bridge goes */
+    /* Room for the scroll, and then two or three lines of open sky before
+       the maze begins. Nothing below: that space is the bridge's. */
+    padding:clamp(152px,19vh,206px) 10px 8px;
   }
-  body::before{
-    content:"";position:fixed;left:0;right:0;bottom:0;height:96px;z-index:0;
-    background-image:conic-gradient(var(--checker-a) 90deg,var(--checker-b) 0 180deg,var(--checker-a) 0 270deg,var(--checker-b) 0);
-    background-size:48px 48px;border-top:5px solid var(--edge);
+  /* the ground is painted by world.js now, along with everything else */
+  #world{position:fixed;inset:0;z-index:0;display:block;pointer-events:none}
+  /* The two things in the sky you can actually press, kept in one row so
+     they cannot collide with each other or with the drawn readouts above. */
+  .skycorner{
+    position:fixed;top:52px;right:clamp(14px,2vw,28px);z-index:2;
+    display:flex;align-items:center;gap:12px;
   }
+  .skyplayer{
+    font-family:var(--pixel);font-size:.5rem;letter-spacing:.06em;
+    background:none;border:0;border-bottom:2px solid rgba(4,10,34,.5);
+    color:#0A1C4A;padding:0 0 3px;cursor:pointer;
+  }
+  .skyplayer:hover{color:#040A22;border-color:#040A22}
+  /* mute the game without muting the whole machine */
+  .skysound{background:none;border:0;padding:0;cursor:pointer;line-height:0}
+  .skysound canvas{display:block;image-rendering:pixelated;width:26px;height:22px}
+  .soundpanel{
+    position:fixed;top:84px;right:clamp(14px,2vw,28px);z-index:3;display:none;
+    background:var(--panel);border:4px solid var(--white);
+    box-shadow:0 0 0 4px var(--edge);padding:12px;min-width:190px;
+  }
+  .soundpanel.on{display:block}
+  .soundpanel input[type=range]{width:100%;accent-color:var(--gold);margin-top:8px}
   body::after{
     content:"";position:fixed;inset:0;z-index:60;pointer-events:none;
     background:repeating-linear-gradient(to bottom,rgba(4,10,34,.16) 0 2px,transparent 2px 4px);
   }
-  .app{position:relative;z-index:1;width:100%;max-width:520px;display:flex;flex-direction:column;gap:clamp(12px,2.6vw,18px)}
+  .app{min-height:calc(100vh - clamp(152px,19vh,206px) - 8px);
+    display:flex;flex-direction:column;position:relative;z-index:1;width:100%;max-width:560px;display:flex;flex-direction:column;gap:clamp(10px,2.2vw,16px)}
   .panel{
     background:var(--panel);border:4px solid var(--white);
     box-shadow:0 0 0 4px var(--edge),7px 7px 0 4px rgba(4,10,34,.42);
-    padding:clamp(12px,3.4vw,20px);
+    padding:clamp(10px,3vw,16px);
   }
-  .title{
-    font-family:var(--pixel);font-size:clamp(.82rem,4.1vw,1.25rem);
-    line-height:1.35;margin:0;color:var(--gold);text-shadow:3px 3px 0 var(--edge);
+  .label{font-family:var(--pixel);font-size:.5rem;letter-spacing:.06em;color:var(--steel);text-transform:uppercase}
+  /* deliberately wider than the panel: the rolled ends run off both sides,
+     so it reads as a banner draped across rather than a card sitting in it */
+  .titlebar{
+    display:block;image-rendering:pixelated;
+    width:calc(100% + 2 * clamp(12px,3.4vw,20px) + 8px);
+    margin:-4px calc(-1 * clamp(12px,3.4vw,20px) - 4px) 0;
+    height:auto;
   }
+  .title{font-family:var(--pixel);font-size:clamp(.8rem,4vw,1.15rem);margin:0;color:var(--gold);text-shadow:3px 3px 0 var(--edge)}
   .title span{color:var(--white)}
-  .tagline{font-size:.9rem;color:var(--steel);margin:8px 0 0}
-  .label{
-    font-family:var(--pixel);font-size:.5rem;line-height:1.6;
-    letter-spacing:.06em;color:var(--steel);text-transform:uppercase;
+
+  [hidden]{display:none !important}
+  .hudrow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .keyring{display:flex;gap:6px;align-items:center;min-height:26px}
+  .kchip{
+    width:24px;height:24px;border:3px solid var(--edge);
+    background:var(--gold);color:var(--edge);
+    font-family:var(--pixel);font-size:.6rem;
+    display:flex;align-items:center;justify-content:center;
   }
-  .hud{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
-  .hud b{
-    display:block;font-family:var(--pixel);font-size:.72rem;
-    color:var(--gold);text-shadow:2px 2px 0 var(--edge);margin-top:5px;
+  .kchip.spent{opacity:.28}
+
+  /* ---- the screen ---- */
+  .journey{margin-top:14px;border-top:3px solid #23306F;padding-top:12px}
+  .jhead{display:flex;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .bridge{display:block;width:100%;height:auto;image-rendering:pixelated;
+    border:3px solid var(--edge);background:#07102E}
+  /* the maze scales to whatever height is left, so the bridge band and the
+     ground below it are never pushed off the bottom of the window */
+  .screen{max-height:52vh;width:auto;max-width:100%;margin-left:auto;margin-right:auto;
+    display:block;width:100%;height:auto;
+    border:4px solid var(--edge);background:#0A1038;
+    image-rendering:pixelated;touch-action:none;
   }
-  /* the drill mounts here and supplies its own frame */
-  #mount{display:block}
-  .fail{
-    background:#3A1015;border:4px solid var(--white);
-    box-shadow:0 0 0 4px var(--edge);padding:18px;
+
+  /* ---- control legend: icons, not sentences ---- */
+  .legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .lg{display:flex;gap:7px;align-items:center}
+  .cluster{display:grid;grid-template-columns:repeat(3,11px);grid-template-rows:repeat(2,11px);gap:2px}
+  .cap{
+    background:var(--panel-lo);border:2px solid var(--white);
+    box-shadow:2px 2px 0 var(--edge);
   }
-  .fail h2{font-family:var(--pixel);font-size:.62rem;margin:0 0 10px;color:#FF8A8A}
-  .fail code{background:#0A1038;padding:2px 5px;color:var(--gold)}
+  .cap.blank{background:none;border:0;box-shadow:none}
+  .cap.wide{
+    grid-column:span 3;width:auto;font-family:var(--pixel);font-size:.4rem;
+    color:var(--white);display:flex;align-items:center;justify-content:center;
+  }
+  .lgtext{font-family:var(--pixel);font-size:.46rem;color:var(--steel);letter-spacing:.05em}
+
+  /* ---- d-pad for touch ---- */
+  .pad{display:none;grid-template-columns:repeat(3,1fr);gap:8px;max-width:230px}
+  .pad.on{display:grid}
+  .padwrap{display:none;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+  .padwrap.on{display:flex}
+  .btn{
+    font-family:var(--pixel);font-size:.85rem;
+    background:var(--panel-lo);border:4px solid var(--white);
+    box-shadow:0 0 0 3px var(--edge),4px 4px 0 3px rgba(4,10,34,.42);
+    color:var(--white);padding:16px 0;cursor:pointer;user-select:none;
+  }
+  .btn:active{background:var(--gold);color:var(--edge);transform:translate(3px,3px);box-shadow:0 0 0 3px var(--edge)}
+  .btn.blank{visibility:hidden}
+  .btn.act{background:#0E9F4F;font-size:.55rem;padding:22px 18px}
+
+  /* ---- overlays ---- */
+  .overlay{
+    position:fixed;inset:0;z-index:70;display:none;
+    align-items:center;justify-content:center;padding:16px;
+    background:rgba(4,10,34,.78);
+  }
+  .overlay.on{display:flex}
+  .sheet{width:100%;max-width:420px;background:var(--panel);border:4px solid var(--white);
+    box-shadow:0 0 0 4px var(--edge);padding:20px}
+  .sheet h2{font-family:var(--pixel);font-size:.8rem;margin:0 0 4px;color:var(--gold)}
+  /* the workshop opens over the running game, so nothing is navigated away */
+  .overlay.work{background:rgba(4,10,34,.92);align-items:stretch;padding:12px}
+  .sheet.work{width:100%;max-width:none;display:flex;flex-direction:column;gap:10px;margin:0}
+  .workhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  #workFrame{flex:1;width:100%;border:3px solid var(--edge);background:#0A1038;min-height:60vh}
+  .sheet.gate{border-color:var(--gold);box-shadow:0 0 0 4px var(--edge),0 0 0 9px rgba(255,213,46,.28)}
+  /* the ending should fill the screen — the maze is behind you now */
+  /* the celebration is behind this, across the whole sky, so the card
+     only has to carry the words */
+  .overlay.win{background:rgba(4,10,34,.45);align-items:flex-end;padding:18px}
+  .winsheet{max-width:min(460px,94vw);margin:0 auto}
+
+  .pips{display:flex;gap:7px;margin:14px 0}
+  .pip{width:20px;height:20px;border:3px solid var(--steel);background:#0A1038}
+  .pip.on{background:var(--gold);border-color:var(--white)}
+  /* .lang is kept as a styling hook but carries no colour: the panel
+     already names the lock in words, so colour would be redundant. */
+  .slot{
+    border:3px dashed #33407F;padding:16px;text-align:center;
+    color:var(--steel);font-size:.9rem;margin:14px 0;
+  }
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row .btn{flex:1;padding:14px 10px;font-size:.5rem}
+  .btn.ghost{background:transparent}
+  .toast{
+    position:fixed;left:50%;bottom:118px;transform:translateX(-50%);z-index:65;
+    font-family:var(--pixel);font-size:.5rem;color:var(--edge);background:var(--gold);
+    border:3px solid var(--edge);padding:9px 12px;opacity:0;transition:opacity .18s;
+    pointer-events:none;white-space:nowrap;
+  }
+  .toast.on{opacity:1}
+  @media (prefers-reduced-motion:reduce){.toast{transition:none}}
+  /* The tools sit down on the grass, out of the sky and out of the way.
+     Opening them may push the page taller, which is fine — nobody opens
+     them mid-maze. */
+  #toolsPanel{margin-top:auto}
+  .foot{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:.9rem;color:var(--steel)}
+  .link{font-family:var(--pixel);font-size:.46rem;background:none;border:0;border-bottom:2px solid var(--steel);color:var(--steel);cursor:pointer;padding:0 0 2px}
+  .link:hover{color:var(--white);border-color:var(--white)}
+  :focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 </style>
 </head>
 <body>
+<canvas id="world" aria-hidden="true"></canvas>
+<div class="skycorner" id="skyCorner">
+  <button class="skysound" id="skySound" title="Sound" aria-label="Sound">
+    <canvas id="soundIcon" width="22" height="18"></canvas>
+  </button>
+  <button class="skysound" id="skyTools" title="The Sphinx's Workshop"
+          aria-label="The Sphinx's Workshop" hidden>
+    <canvas id="toolsIcon" width="22" height="18"></canvas>
+  </button>
+  <button class="skyplayer" id="skyPlayer">PLAYER 1</button>
+</div>
 <main class="app">
 
-  <section class="panel">
-    <h1 class="title">AM<span>+</span>ZED <span>NUMBERS</span></h1>
-    <p class="tagline">Long-form drill. Ones first.</p>
-    <div class="hud">
-      <div><span class="label">Solved</span><b id="sSolved">0</b></div>
-      <div><span class="label">Acc</span><b id="sAcc">--</b></div>
-      <div><span class="label">Time</span><b id="sMed">--</b></div>
-      <div><span class="label">Best</span><b id="sStreak">0</b></div>
+  <section class="panel" id="topPanel">
+    <div class="hudrow" id="panelHud">
+      <div><span class="label">Maze</span> <b id="lvl" style="font-family:var(--pixel);font-size:.7rem;color:var(--gold)">1</b></div>
+      <div><span class="label">Locks</span> <b id="locks" style="font-family:var(--pixel);font-size:.7rem;color:var(--gold)">0/1</b></div>
+      <div class="keyring" id="keyring"><span class="label">Keys</span></div>
+      <button class="link" id="whoBtn" style="font-size:.5rem">PLAYER 1</button>
+    </div>
+    <div class="hudrow" id="panelHud2" style="margin-top:8px">
+      <span class="label" id="themeNameTop"></span>
+      <span class="label" id="gateNextTop"></span>
+    </div>
+    <div class="hudrow" id="whoRow" style="margin-top:8px;justify-content:flex-end"></div>
+  </section>
+
+  <section class="panel" id="journeyPanel" hidden>
+    <div class="journey" id="journey">
+      <div class="jhead">
+        <span class="label" id="themeName"></span>
+        <span class="label" id="gateNext"></span>
+      </div>
+      <canvas class="bridge" id="bridge" width="240" height="112"
+              aria-label="Bridge between the two kingdoms"></canvas>
     </div>
   </section>
 
-  <div id="mount"></div>
+  <canvas class="screen" id="screen" width="294" height="210" aria-label="Maze"></canvas>
+
+  <section class="panel" id="legendPanel">
+    <div class="legend">
+      <div class="lg">
+        <div class="cluster" aria-hidden="true">
+          <div class="cap blank"></div><div class="cap" id="capU"></div><div class="cap blank"></div>
+          <div class="cap" id="capL"></div><div class="cap" id="capD"></div><div class="cap" id="capR"></div>
+        </div>
+        <span class="lgtext">MOVE</span>
+      </div>
+      <div class="lg">
+        <div class="cluster" style="grid-template-rows:22px" aria-hidden="true">
+          <div class="cap wide">ENTER</div>
+        </div>
+        <span class="lgtext">USE LOCK</span>
+      </div>
+    </div>
+    <div class="padwrap" id="padwrap" style="margin-top:14px">
+      <div class="pad on" id="pad">
+        <button class="btn blank"></button><button class="btn" data-dir="N">^</button><button class="btn blank"></button>
+        <button class="btn" data-dir="W">&lt;</button><button class="btn" data-dir="S">v</button><button class="btn" data-dir="E">&gt;</button>
+      </div>
+      <button class="btn act" id="actBtn">USE</button>
+    </div>
+  </section>
+
+  <section class="panel" id="toolsPanel">
+    <button class="link" id="toolsToggle" style="font-size:.5rem">TOOLS &#9662;</button>
+    <div class="foot" id="foot" hidden>
+      <button class="link" id="newMaze">NEW MAZE</button>
+      <button class="link" id="dumpDoc">SHOW MAZE JSON</button>
+      <button class="link" id="dumpLog">SHOW ATTEMPT LOG</button>
+      <button class="link" id="wordToggle">WORD LOCKS: ON</button>
+      <button class="link" id="voiceBtn" hidden>VOICE</button>
+      <button class="link" id="storyBtn" hidden>STORY</button>
+      <button class="link" id="authoredBtn">AUTHORED</button>
+      <button class="link" id="wipe">RESET JOURNEY</button>
+    </div>
+  </section>
 
 </main>
 
-<script src="profile.js"></script>
-<script src="math-challenge.js"></script>
+<div class="overlay" id="lockOverlay">
+  <div class="sheet" id="lockSheet">
+    <h2 id="lockTitle">MATH LOCK</h2>
+    <span class="label" id="lockSub">Turn the lock 3 times</span>
+    <div class="pips" id="pips"></div>
+    <div class="slot" id="lockSlot"></div>
+    <div class="row">
+      <button class="btn ghost" id="leaveBtn">WALK AWAY</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="clearOverlay">
+  <div class="sheet">
+    <h2>MAZE CLEAR</h2>
+    <span class="label" id="clearSub">Every lock turned.</span>
+    <div class="row" style="margin-top:18px">
+      <button class="btn" id="nextBtn">NEXT MAZE</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="gateOverlay">
+  <div class="sheet gate">
+    <h2 id="gateTitle">WORDSMITH GATE</h2>
+    <span class="label" id="gateSub"></span>
+    <div class="pips" id="gatePips"></div>
+    <div class="slot" id="gateSlot"></div>
+  </div>
+</div>
+
+<div class="overlay win" id="winOverlay">
+  <div class="sheet gate winsheet">
+    <h2 style="color:#fff">THE BRIDGE STANDS</h2>
+    <p style="margin:10px 0">You learned both crafts and set the keystone.
+    Wordsmiths and Numbersmiths are one road again.</p>
+    <div class="row"><button class="btn" id="winBtn">TRAVEL AGAIN</button></div>
+    <p class="label" style="margin-top:10px">Your reading and number levels carry over.</p>
+  </div>
+</div>
+
+<div class="soundpanel" id="soundPanel">
+  <span class="label">Sound</span>
+  <div class="row" style="margin-top:8px">
+    <button class="btn" id="soundToggle" style="flex:1">ON</button>
+  </div>
+  <span class="label" style="display:block;margin-top:10px">Volume</span>
+  <input type="range" id="soundVol" min="0" max="1" step="0.05">
+</div>
+
+<div class="overlay" id="playerOverlay">
+  <div class="sheet">
+    <h2>WHO IS PLAYING?</h2>
+    <span class="label">Each player keeps their own levels and their own bridge</span>
+    <div id="playerList" style="margin-top:12px"></div>
+    <div class="row" style="margin-top:12px">
+      <input type="text" id="newName" placeholder="new player"
+             style="flex:1;min-width:120px;background:#0A1038;color:#fff;border:3px solid #33407F;padding:7px;font-family:var(--screen)">
+      <button class="btn" id="addPlayer">ADD</button>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost" id="exportBtn">SAVE TO TEXT</button>
+      <button class="btn ghost" id="importBtn">LOAD FROM TEXT</button>
+      <button class="btn ghost" id="playerClose">DONE</button>
+    </div>
+    <textarea id="saveBox" spellcheck="false" hidden
+      style="width:100%;height:110px;margin-top:12px;background:#0A1038;color:#8FA3D8;border:3px solid #33407F;font-family:var(--screen);font-size:.78rem;padding:8px"></textarea>
+    <p class="label" id="playerNote" style="margin-top:8px"></p>
+  </div>
+</div>
+
+<div class="overlay" id="authoredOverlay">
+  <div class="sheet">
+    <h2>AUTHORED MAZES</h2>
+    <span class="label">Made in maze-editor.html</span>
+    <div id="authoredList" style="margin-top:12px"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn ghost" id="authoredClose">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay work" id="workOverlay">
+  <div class="sheet work">
+    <div class="workhead">
+      <span class="label">The Sphinx's Workshop</span>
+      <div class="row">
+        <button class="btn sm" id="workBench">SOUNDS</button>
+        <button class="btn sm" id="workSeq">TUNES</button>
+        <button class="btn sm ghost" id="workRestore">PUT IT ALL BACK</button>
+        <button class="btn sm ghost" id="workClose">CLOSE</button>
+      </div>
+    </div>
+    <iframe id="workFrame" title="Workshop"></iframe>
+  </div>
+</div>
+
+<div class="overlay" id="giftOverlay">
+  <div class="sheet gate">
+    <h2 style="color:#fff">SHE HAS ONE MORE THING</h2>
+    <p style="margin:12px 0" id="giftLine"></p>
+    <div class="row" style="margin:14px 0">
+      <button class="btn" id="giftWord">HEAR THE WORDSMITH LINE</button>
+      <button class="btn" id="giftNum">HEAR THE NUMBERSMITH LINE</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="giftBoth" style="flex:1;background:#0E9F4F">BOTH AT ONCE</button>
+    </div>
+    <p class="label" style="margin-top:14px" id="giftWhere"></p>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="giftOpen">OPEN THE WORKSHOP</button>
+      <button class="btn ghost" id="giftLater">NOT NOW</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="voiceOverlay">
+  <div class="sheet">
+    <h2>READING VOICE</h2>
+    <span class="label">Used by every word lock on this device</span>
+    <select id="voiceSel" style="width:100%;margin-top:12px;background:#0A1038;color:#fff;border:3px solid #33407F;padding:9px;font-family:var(--screen);font-size:.9rem"></select>
+    <p class="label" id="voiceNow" style="margin-top:10px"></p>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="voiceTest">HEAR IT</button>
+      <button class="btn ghost" id="voiceClose">DONE</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="jsonOverlay">
+  <div class="sheet">
+    <h2>MAZE DOCUMENT</h2>
+    <span class="label">carrymaze/1 &mdash; what an editor would also produce</span>
+    <textarea id="jsonBox" readonly style="width:100%;height:220px;margin-top:12px;background:#0A1038;color:#8FA3D8;border:3px solid #33407F;font-family:var(--screen);font-size:.8rem"></textarea>
+    <div class="row" style="margin-top:12px"><button class="btn ghost" id="jsonClose">CLOSE</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
 <script>
+/* ===================================================================
+   THE CHALLENGE REGISTRY  —  the contract between a lock and its content
+
+   Built into the host so this page always runs on its own. Real drills
+   arrive later as separate scripts that call Challenges.register(),
+   loaded BEFORE this file's game script. Full contract: CHALLENGE-API.md
+
+     factory(mount, session, report) -> handle
+
+     session  .kind .required .progress .variant .hints
+     report   .correct .ms .firstInSession .detail
+     handle   .focus() .abandon() .destroy()
+
+   1. The maze counts corrects and decides when a door opens.
+   2. The challenge owns all difficulty adaptation and its own storage.
+   3. `detail` is opaque to the maze — logs only, never branch on it.
+   4. abandon() drops the in-flight item unreported.
+   5. The first attempt after mounting is flagged as re-entry.
+
+   Only registered kinds get doors, so an unfinished game can never
+   produce a maze you cannot open.
+=================================================================== */
+(function(root){
+  "use strict";
+  var reg={};
+  root.Challenges={
+    register:function(kind,factory,meta){
+      if(typeof factory!=="function") throw new Error("challenge factory must be a function");
+      reg[kind]={factory:factory,meta:meta||{}};
+    },
+    unregister:function(kind){ delete reg[kind]; },
+    has:function(kind){ return Object.prototype.hasOwnProperty.call(reg,kind); },
+    available:function(){ return Object.keys(reg); },
+    ready:function(){ return Object.keys(reg).filter(function(k){ return !reg[k].meta.placeholder; }); },
+    meta:function(kind){ return reg[kind]?reg[kind].meta:null; },
+    mount:function(kind,mountEl,session,report){
+      if(!reg[kind]) throw new Error("no challenge registered for kind: "+kind);
+      var fired=false;
+      var guarded=function(result){
+        if(!result||typeof result.correct!=="boolean")
+          throw new Error("report() needs at least { correct: boolean }");
+        if(typeof result.ms!=="number") result.ms=0;
+        result.firstInSession=!fired; fired=true;
+        report(result);
+      };
+      var h=reg[kind].factory(mountEl,session,guarded)||{};
+      ["focus","abandon","destroy"].forEach(function(m){
+        if(typeof h[m]!=="function") h[m]=function(){};
+      });
+      return h;
+    }
+  };
+
+  /* ---- placeholders, until the real drills exist ----
+     Replace by registering the same kind again with a real factory.
+     Remove word locks entirely with: Challenges.unregister("language"); */
+  function stub(label){
+    return function(mount,session,report){
+      var t0=performance.now();
+      var wrap=document.createElement("div");
+      wrap.innerHTML='<p style="margin:0 0 12px">'+label+
+        '<br><span style="opacity:.7">placeholder &mdash; the real drill mounts here</span></p>';
+      var btn=document.createElement("button");
+      btn.type="button"; btn.className="btn"; btn.textContent="TURN LOCK";
+      btn.addEventListener("click",function(){
+        report({correct:true, ms:performance.now()-t0, detail:{placeholder:true}});
+        t0=performance.now();
+      });
+      wrap.appendChild(btn);
+      mount.appendChild(wrap);
+      return {
+        focus:function(){ btn.focus(); },
+        abandon:function(){},
+        destroy:function(){ if(wrap.parentNode) wrap.parentNode.removeChild(wrap); }
+      };
+    };
+  }
+  root.Challenges.register("math",     stub("Each correct sum turns the lock once."),
+    {lockTitle:"NUMBER LOCK", keyLabel:"#", placeholder:true});
+  root.Challenges.register("language", stub("Each word read turns the lock once."),
+    {lockTitle:"WORD LOCK", keyLabel:"A", placeholder:true});
+
+  /* Gate challenges are a different task from door challenges, so they are
+     their own kinds. Real ones drop in exactly the way the drills did. */
+  root.Challenges.register("word-gate",
+    stub("Hear the sentence. Choose the missing word."),
+    {lockTitle:"WORDSMITH GATE", keyLabel:"A", placeholder:true});
+  root.Challenges.register("number-gate",
+    stub("Fill the missing number in the equation."),
+    {lockTitle:"NUMBERSMITH GATE", keyLabel:"#", placeholder:true});
+})(window);
+</script>
+
+<!-- Optional. If math-challenge.js is present it registers itself and
+     replaces the placeholder above. If it is missing, the browser logs a
+     404, the placeholder stays, and this page still works. Never make the
+     host depend on a file it can run without. -->
+<script src="profile.js"></script>
+<script src="unlocks.js"></script>
+<script src="math-challenge.js"></script>
+<script src="word-challenge.js"></script>
+<script src="word-sentences.js"></script>
+<script src="word-gate.js"></script>
+<script src="number-gate.js"></script>
+<script src="title.js"></script>
+<script src="world.js"></script>
+<script src="castle.js"></script>
+<script src="sound.js"></script>
+<script src="intro.js"></script>
+
+<script>
+/* ===================================================================
+   CARRY MAZE — generator and document format
+
+   The generator's only job is to emit a maze document. The game loads
+   documents; it never knows whether a person or this file produced one.
+   That's what makes a level editor a later, separate concern.
+
+   Solvability is guaranteed by construction, not by checking afterwards:
+
+     1. Carve a perfect maze (a spanning tree — exactly one route between
+        any two cells).
+     2. Take the longest path from spawn; that's the solution path.
+     3. Put the R doors on edges ALONG that path, ordered by distance.
+        Removing a tree edge always splits the tree in two, so removing
+        all R door edges yields R+1 regions in a strict line.
+     4. Key i goes in region i — the region you're standing in when you
+        reach door i. You can always reach the key before the door needs it.
+=================================================================== */
+
+var N = 1, E = 2, S = 4, W = 8;
+var DX = { 1: 0, 2: 1, 4: 0, 8: -1 };
+var DY = { 1: -1, 2: 0, 4: 1, 8: 0 };
+var OPP = { 1: 4, 2: 8, 4: 1, 8: 2 };
+var SIDE_NAME = { 1: "N", 2: "E", 4: "S", 8: "W" };
+var SIDE_BIT = { N: 1, E: 2, S: 4, W: 8 };
+
+/* Small deterministic PRNG so a seed reproduces a maze exactly. */
+function rng(seed) {
+  var s = seed >>> 0 || 1;
+  return function () {
+    s ^= s << 13; s >>>= 0;
+    s ^= s >> 17;
+    s ^= s << 5;  s >>>= 0;
+    return s / 4294967296;
+  };
+}
+
+function LEVELS(level) {
+  var i = Math.max(1, level);
+  return {
+    w: Math.min(7 + Math.floor(i * 1.6), 21),
+    h: Math.min(5 + Math.floor(i * 1.1), 15),
+    doors: Math.min(1 + Math.floor(i / 2), 5),
+    required: Math.min(2 + Math.floor(i / 3), 6)
+  };
+}
+
+/* ---- 1. carve a perfect maze (randomised depth-first) ---- */
+function carve(w, h, rand) {
+  var open = new Array(w * h).fill(0);
+  var seen = new Array(w * h).fill(false);
+  var stack = [[0, 0]];
+  seen[0] = true;
+  while (stack.length) {
+    var top = stack[stack.length - 1];
+    var cx = top[0], cy = top[1];
+    var opts = [];
+    [N, E, S, W].forEach(function (d) {
+      var nx = cx + DX[d], ny = cy + DY[d];
+      if (nx >= 0 && nx < w && ny >= 0 && ny < h && !seen[ny * w + nx]) opts.push(d);
+    });
+    if (!opts.length) { stack.pop(); continue; }
+    var d = opts[Math.floor(rand() * opts.length)];
+    var nx2 = cx + DX[d], ny2 = cy + DY[d];
+    open[cy * w + cx] |= d;
+    open[ny2 * w + nx2] |= OPP[d];
+    seen[ny2 * w + nx2] = true;
+    stack.push([nx2, ny2]);
+  }
+  return open;
+}
+
+/* ---- breadth-first search, optionally refusing to cross given edges ---- */
+function edgeKey(x, y, d) {
+  /* normalise every edge to the lower-coordinate cell so both sides agree */
+  if (d === N) return (x) + "," + (y - 1) + ",S";
+  if (d === W) return (x - 1) + "," + (y) + ",E";
+  return x + "," + y + "," + SIDE_NAME[d];
+}
+
+function bfs(w, h, open, startX, startY, blocked) {
+  var dist = new Array(w * h).fill(-1);
+  var prev = new Array(w * h).fill(-1);
+  var q = [startY * w + startX];
+  dist[startY * w + startX] = 0;
+  for (var qi = 0; qi < q.length; qi++) {
+    var c = q[qi], cx = c % w, cy = (c / w) | 0;
+    [N, E, S, W].forEach(function (d) {
+      if (!(open[c] & d)) return;
+      if (blocked && blocked[edgeKey(cx, cy, d)]) return;
+      var nx = cx + DX[d], ny = cy + DY[d], n = ny * w + nx;
+      if (dist[n] !== -1) return;
+      dist[n] = dist[c] + 1;
+      prev[n] = c;
+      q.push(n);
+    });
+  }
+  return { dist: dist, prev: prev, order: q };
+}
+
+function generate(level, seed, kinds) {
+  var cfg = LEVELS(level);
+  var w = cfg.w, h = cfg.h;
+  var rand = rng(seed);
+  var open = carve(w, h, rand);
+
+  /* ---- 2. spawn, and the farthest cell from it as the exit ---- */
+  var spawn = { x: 0, y: 0 };
+  var far = bfs(w, h, open, spawn.x, spawn.y, null);
+  var exitIdx = 0;
+  for (var i = 0; i < w * h; i++) if (far.dist[i] > far.dist[exitIdx]) exitIdx = i;
+  var exit = { x: exitIdx % w, y: (exitIdx / w) | 0 };
+
+  /* the solution path, spawn -> exit */
+  var path = [];
+  for (var c = exitIdx; c !== -1; c = far.prev[c]) path.push(c);
+  path.reverse();
+
+  /* ---- 3. doors spaced along the solution path ---- */
+  /* No challenge registered for a kind means no door of that kind, so a
+     half-finished game can never produce an unopenable maze. */
+  kinds = (kinds && kinds.length) ? kinds : [];
+  var doorCount = kinds.length ? Math.min(cfg.doors, path.length - 1) : 0;
+  var doors = [], blocked = {};
+  for (var d = 0; d < doorCount; d++) {
+    var at = Math.floor(((d + 1) * (path.length - 1)) / (doorCount + 1));
+    if (at < 1) at = 1;
+    var from = path[at - 1], to = path[at];
+    var fx = from % w, fy = (from / w) | 0;
+    var tx = to % w, ty = (to / w) | 0;
+    var side = null;
+    [N, E, S, W].forEach(function (s) { if (fx + DX[s] === tx && fy + DY[s] === ty) side = s; });
+    var key = edgeKey(fx, fy, side);
+    if (blocked[key]) { doorCount++; continue; }
+    blocked[key] = true;
+    /* store the edge from its lower-coordinate cell, always E or S */
+    var parts = key.split(",");
+    doors.push({
+      id: doors.length,
+      cell: { x: +parts[0], y: +parts[1] },
+      side: parts[2],
+      kind: null,
+      required: cfg.required,
+      keyId: doors.length
+    });
+  }
+
+  /* ---- 4. regions, in order along the path ---- */
+  var regionOf = new Array(w * h).fill(-1);
+  var r0 = bfs(w, h, open, spawn.x, spawn.y, blocked);
+  r0.order.forEach(function (c) { regionOf[c] = 0; });
+
+  doors.forEach(function (door, idx) {
+    /* the cell on the far side of this door starts the next region */
+    var bit = SIDE_BIT[door.side];
+    var fx = door.cell.x, fy = door.cell.y;
+    var nx = fx + DX[bit], ny = fy + DY[bit];
+    var near = regionOf[fy * w + fx] === idx ? { x: nx, y: ny } : { x: fx, y: fy };
+    var rr = bfs(w, h, open, near.x, near.y, blocked);
+    rr.order.forEach(function (c) { if (regionOf[c] === -1) regionOf[c] = idx + 1; });
+  });
+
+  /* ---- key i lives in region i, at the most out-of-the-way dead end ---- */
+  var keys = [];
+  doors.forEach(function (door, idx) {
+    var pool = [];
+    for (var c = 0; c < w * h; c++) {
+      if (regionOf[c] !== idx) continue;
+      if (c === spawn.y * w + spawn.x || c === exitIdx) continue;
+      pool.push(c);
+    }
+    if (!pool.length) pool = [spawn.y * w + spawn.x];
+    var deadEnds = pool.filter(function (c) {
+      var m = open[c], n = 0;
+      while (m) { n += m & 1; m >>= 1; }
+      return n === 1;
+    });
+    var candidates = deadEnds.length ? deadEnds : pool;
+    /* farthest from spawn keeps keys off the beaten path */
+    var best = candidates[0];
+    candidates.forEach(function (c) { if (far.dist[c] > far.dist[best]) best = c; });
+    keys.push({ id: idx, cell: { x: best % w, y: (best / w) | 0 }, kind: null });
+  });
+
+  /* ---- door kinds cycle through whatever is available ---- */
+  doors.forEach(function (door, i) {
+    var kind = kinds[i % kinds.length];
+    door.kind = kind;
+    keys[i].kind = kind;
+  });
+
+  return {
+    format: "carrymaze/1",
+    level: level,
+    seed: seed,
+    size: { w: w, h: h },
+    spawn: spawn,
+    exit: exit,
+    open: (function () {
+      var rows = [];
+      for (var y = 0; y < h; y++) rows.push(Array.from(open.slice(y * w, y * w + w)));
+      return rows;
+    })(),
+    doors: doors,
+    keys: keys
+  };
+}
+
+/* ---- validator: any document, generated or authored, must pass this ---- */
+function validate(doc) {
+  var problems = [];
+  if (doc.format !== "carrymaze/1") problems.push("unknown format");
+  var w = doc.size.w, h = doc.size.h;
+  var open = [];
+  for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) open.push(doc.open[y][x]);
+
+  /* walls must agree from both sides */
+  for (var yy = 0; yy < h; yy++) for (var xx = 0; xx < w; xx++) {
+    [N, E, S, W].forEach(function (d) {
+      var nx = xx + DX[d], ny = yy + DY[d];
+      var inside = nx >= 0 && nx < w && ny >= 0 && ny < h;
+      var here = !!(open[yy * w + xx] & d);
+      if (!inside && here) problems.push("opening leads off the grid at " + xx + "," + yy);
+      if (inside && here !== !!(open[ny * w + nx] & OPP[d]))
+        problems.push("walls disagree between " + xx + "," + yy + " and " + nx + "," + ny);
+    });
+  }
+
+  /* perfect maze: fully connected, no loops */
+  var full = bfs(w, h, open, doc.spawn.x, doc.spawn.y, null);
+  if (full.order.length !== w * h) problems.push("maze is not fully connected");
+  var edges = 0;
+  for (var i = 0; i < w * h; i++) { var m = open[i]; while (m) { edges += m & 1; m >>= 1; } }
+  if (edges / 2 !== w * h - 1) problems.push("maze has loops (" + edges / 2 + " edges)");
+
+  /* walk it: can we actually finish, picking up keys as we go? */
+  var blocked = {};
+  doc.doors.forEach(function (d) { blocked[d.cell.x + "," + d.cell.y + "," + d.side] = d.id; });
+  var openDoors = {}, held = {}, guard = 0;
+  while (guard++ < 50) {
+    var live = {};
+    Object.keys(blocked).forEach(function (k) { if (!openDoors[blocked[k]]) live[k] = true; });
+    var reach = bfs(w, h, open, doc.spawn.x, doc.spawn.y, live);
+    doc.keys.forEach(function (k) {
+      if (reach.dist[k.cell.y * w + k.cell.x] !== -1) held[k.id] = true;
+    });
+    if (reach.dist[doc.exit.y * w + doc.exit.x] !== -1) return { ok: !problems.length, problems: problems };
+    var opened = false;
+    doc.doors.forEach(function (d) {
+      if (openDoors[d.id]) return;
+      if (!held[d.keyId]) return;
+      /* must be standing next to it to use it */
+      var a = reach.dist[d.cell.y * w + d.cell.x] !== -1;
+      var nb = SIDE_BIT[d.side];
+      var b = reach.dist[(d.cell.y + DY[nb]) * w + (d.cell.x + DX[nb])] !== -1;
+      if (a || b) { openDoors[d.id] = true; opened = true; }
+    });
+    if (!opened) break;
+  }
+  problems.push("maze cannot be completed: exit unreachable even with every reachable key");
+  return { ok: false, problems: problems };
+}
+
 (function(){
   "use strict";
-  var el=function(i){ return document.getElementById(i); };
-  var mount=el("mount");
 
-  /* This page IS the drill's frame, so unlike the maze it cannot fall back
-     to anything. Say so plainly rather than showing an empty box. */
-  if(typeof window.MathChallenge!=="function"){
-    mount.className="fail";
-    mount.innerHTML='<h2>THE DRILL DID NOT LOAD</h2>'+
-      '<p><code>math-challenge.js</code> needs to sit in the same folder as '+
-      'this file. If you downloaded them separately, put them together and reload.</p>';
-    return;
+  var store=(function(){
+    var mem={};
+    try{ var k="__t";localStorage.setItem(k,"1");localStorage.removeItem(k);
+      return {get:function(n){try{return localStorage.getItem(n);}catch(e){return mem[n]||null;}},
+              set:function(n,v){try{localStorage.setItem(n,v);}catch(e){mem[n]=v;}}};
+    }catch(e){ return {get:function(n){return mem[n]||null;},set:function(n,v){mem[n]=v;}}; }
+  })();
+
+  var B=14;                       /* block size in device-independent px  */
+  var VIEW_BW=21, VIEW_BH=15;     /* viewport measured in blocks          */
+  var el=function(i){return document.getElementById(i);};
+  var cv=el("screen"), ctx=cv.getContext("2d");
+  cv.width=VIEW_BW*B; cv.height=VIEW_BH*B;
+
+  var C={
+    floor:"#0A1038", floorDot:"#141C4E",
+    wall:"#24408C", wallTop:"#4A78D8", wallLow:"#12225A",
+    exit:"#FFD52E", exitLow:"#B8942A",
+    /* Type is carried by the keyhole shape alone. Every door is the same
+       brown, every key the same gold, so colour is free to mean nothing. */
+    door:"#A9713C", doorHi:"#D6A06A", ink:"#040A22",
+    key:"#FFD52E",
+    body:"#46E0E0", bodyDark:"#1E8C8C", white:"#FFFFFF"
+  };
+
+  /* o = frame   b = door body   l = lit rim   . = see-through
+     Keyholes are stencil-cut: a literal '#' would drop its centre and a
+     literal 'A' its counter, so a bar is bridged in each to hold them. */
+  var SPR={
+    doorNum:[".....oooo.....","...oolllloo...","..ollbbbbllo..",".olbbbbbbbblo.",".obbbbbbbbbbo.",".obbbbbbbbbbo.",".obbbbbbbbbbo.",".obbbbb.b.bbo.",".obbbb.....bo.",".obbbbb...bbo.",".obbbb.....bo.",".obbbbb.b.bbo.",".obbbbbbbbbbo.",".oooooooooooo."],
+    doorWord:[".....oooo.....","...oolllloo...","..ollbbbbllo..",".olbbbbbbbblo.",".obbbbbbbbbbo.",".obbbbbbbbbbo.",".obbbbbbbbbbo.",".obbbbb...bbo.",".obbbb.bbb.bo.",".obbbb..b..bo.",".obbbb.bbb.bo.",".obbbb.bbb.bo.",".obbbbbbbbbbo.",".oooooooooooo."],
+    /* a key is solid material, not a cut, so its bit keeps an open centre */
+    keyNum:[".###.....#.#.","#...#...#####","#...####.#.#.","#...#...#####",".###.....#.#."],
+    keyWord:[".###.....###.","#...#...#...#","#...#########","#...#...#...#",".###....#...#"]
+  };
+
+  function stamp(rows,ox,oy,map){
+    for(var y=0;y<rows.length;y++){
+      for(var x=0;x<rows[y].length;x++){
+        var col=map[rows[y].charAt(x)];
+        if(col){ ctx.fillStyle=col; ctx.fillRect(ox+x,oy+y,1,1); }
+      }
+    }
   }
 
-  /* Standalone: no lock to open, so nothing to count toward. */
-  var handle = window.MathChallenge(mount, {
-    kind:"math",
-    required:Infinity,
-    progress:0,
-    variant:null,
-    hints:{ showPace:true, showEvidence:true, showSettings:true }
-  }, onAttempt);
+  /* =============================================================
+     THE JOURNEY
 
-  function onAttempt(){
-    var t = window.MathChallengeState.tally();
-    el("sSolved").textContent = t.solved;
-    el("sAcc").textContent = t.solved ? Math.round(t.right/t.solved*100)+"%" : "--";
-    if(t.times.length){
-      var s=t.times.slice().sort(function(a,b){return a-b;});
-      el("sMed").textContent=(s[Math.floor(s.length/2)]/1000).toFixed(1)+"s";
-    } else el("sMed").textContent="--";
-    el("sStreak").textContent = t.best;
+     Two kingdoms, a river between them, and a bridge that only gets
+     built by becoming skilled at both crafts. Every third maze ends at
+     a GOLD exit instead of a brown one; passing it is a Gate Challenge,
+     and each one earns a stone. Word gates build out from the Wordsmith
+     bank, number gates from the Numbersmith bank, and the last gate —
+     which demands both — sets the keystone.
+
+     Each gate also opens the next land, so the reward is not only a
+     stone but a change of scenery for the mazes that follow.
+  ============================================================= */
+  var MAZES_PER_GATE = 3;
+  var STONES_PER_SIDE = 3;
+  var TOTAL_GATES = STONES_PER_SIDE * 2 + 1;          /* 7 gates, 21 mazes */
+
+  /* The palettes are borrowed in spirit; the NAMES are not. Two of the
+     originals sat far too close to another game's level titles, so they
+     are gone and every land is unnamed until you name it. Fill in `name`
+     and it appears in the top-right of the sky; leave it empty and no
+     land name is shown at all. The `id` is internal and never displayed. */
+  var THEMES = [
+    { id:"dawn",      name:"",
+      sky:["#8FD4FF","#5CB8FF","#1B4FD6"], checker:["#31A94F","#22833C"],
+      wall:"#24408C", wallTop:"#4A78D8", wallLow:"#12225A",
+      floor:"#0A1038", floorDot:"#141C4E", panel:"#0C1442" },
+    { id:"ember",     name:"",
+      sky:["#F0B27A","#C0632F","#4A1C4C"], checker:["#8E4FA8","#6B3580"],
+      wall:"#7A4B8C", wallTop:"#B584C6", wallLow:"#3E2049",
+      floor:"#1E0F2E", floorDot:"#331C4A", panel:"#22102F" },
+    { id:"rose",      name:"",
+      sky:["#FFC7DE","#E8739F","#5C2140"], checker:["#C0507E","#93375C"],
+      wall:"#9C4A6E", wallTop:"#D882A6", wallLow:"#54203A",
+      floor:"#2A0F1E", floorDot:"#451B32", panel:"#2E1122" },
+    { id:"teal",      name:"",
+      sky:["#7FE3E8","#2A9BB0","#083A52"], checker:["#2E8FA0","#1F6B7A"],
+      wall:"#1F6E80", wallTop:"#49AEC2", wallLow:"#0D3846",
+      floor:"#06202E", floorDot:"#0D3546", panel:"#07222F" },
+    { id:"violet",    name:"",
+      sky:["#4A2E86","#2B1A5C","#0B0726"], checker:["#6B4BC4","#4A339A"],
+      wall:"#4A3596", wallTop:"#8570D8", wallLow:"#241958",
+      floor:"#0C0730", floorDot:"#1B1250", panel:"#0E0934" },
+    { id:"rust",      name:"",
+      sky:["#FFB27A","#D6512A","#3A1008"], checker:["#B5502E","#8A3A1F"],
+      wall:"#8A3E2A", wallTop:"#D07A55", wallLow:"#4A1C12",
+      floor:"#240C08", floorDot:"#3D160E", panel:"#280E09" },
+    { id:"gold",      name:"",
+      sky:["#FFF0B8","#FFD52E","#B8801A"], checker:["#D8A82A","#A87F1C"],
+      wall:"#A8791F", wallTop:"#F0CE6A", wallLow:"#6B4A10",
+      floor:"#2B1F05", floorDot:"#463509", panel:"#2E2206" }
+  ];
+
+  var J = { maze:1, gate:0, stones:{word:0, number:0}, keystone:false };
+
+  function themeIdx(){ return Math.min(J.gate, THEMES.length-1); }
+  function theme(){ return THEMES[themeIdx()]; }
+  function isGateMaze(n){ return n % MAZES_PER_GATE === 0; }
+  /* gates alternate, and the last one demands both crafts at once */
+  function gateKind(gateIndex){
+    if(gateIndex >= TOTAL_GATES-1) return "both";
+    return (gateIndex % 2 === 0) ? "word" : "number";
+  }
+  function journeyDone(){ return J.keystone; }
+
+  function applyTheme(){
+    var t = theme(), r = document.documentElement.style;
+    r.setProperty("--sky-top", t.sky[0]);
+    r.setProperty("--sky-hi",  t.sky[1]);
+    r.setProperty("--sky-lo",  t.sky[2]);
+    r.setProperty("--checker-a", t.checker[0]);
+    r.setProperty("--checker-b", t.checker[1]);
+    r.setProperty("--panel", t.panel);
+    C.wall=t.wall; C.wallTop=t.wallTop; C.wallLow=t.wallLow;
+    C.floor=t.floor; C.floorDot=t.floorDot;
+    if(el("themeName")) el("themeName").textContent = t.name;
+    if(window.World && typeof pushWorld==="function") pushWorld();
+    if(el("themeNameTop")) el("themeNameTop").textContent = t.name;
   }
 
-  onAttempt();
-  handle.focus();
-  document.addEventListener("click",function(e){
-    var t=e.target;
-    if(!t||!t.closest) return;
-    if(t.closest("button, input, label, a")) return;
-    handle.focus();
+  /* =============================================================
+     Game state. The maze document is the level; this is the play.
+  ============================================================= */
+  var G={
+    doc:null,
+    px:0, py:0,          /* smoothed position, in cell units */
+    cx:0, cy:0,          /* logical cell */
+    facing:"S",
+    moving:null,
+    held:{},             /* keyId -> true */
+    turned:{},           /* doorId -> count turned so far  */
+    opened:{},           /* doorId -> true */
+    done:false,
+    atDoor:null
+  };
+
+  function save(){
+    store.set(SAVEKEY(), JSON.stringify({
+      level:G.doc.level, seed:G.doc.seed, journey:J,
+      cx:G.cx, cy:G.cy, held:G.held, turned:G.turned, opened:G.opened, done:G.done
+    }));
+  }
+  function load(){
+    try{ return JSON.parse(store.get(SAVEKEY())||"null"); }catch(e){ return null; }
+  }
+
+  function startMaze(level,seed,restore){
+    G.doc=generate(level,seed,Challenges.available().filter(function(k){
+      return k.indexOf("-gate")<0;   /* gates are exits, never doors */
+    }));
+    var v=validate(G.doc);
+    if(!v.ok){ /* never ship an unsolvable maze; reroll */ return startMaze(level,seed+1,null); }
+    G.held={}; G.turned={}; G.opened={}; G.done=false; G.atDoor=null; G.moving=null;
+    G.cx=G.doc.spawn.x; G.cy=G.doc.spawn.y;
+    if(restore){
+      G.held=restore.held||{}; G.turned=restore.turned||{};
+      G.opened=restore.opened||{}; G.done=!!restore.done;
+      if(typeof restore.cx==="number"){ G.cx=restore.cx; G.cy=restore.cy; }
+      if(restore.journey){
+        J.maze = restore.journey.maze || 1;
+        J.gate = restore.journey.gate || 0;
+        J.stones = restore.journey.stones || {word:0,number:0};
+        J.keystone = !!restore.journey.keystone;
+      }
+    }
+    G.px=G.cx; G.py=G.cy;
+    drawHud(); save();
+  }
+
+  /* =============================================================
+     Movement.  Arrows move — never commit.  Enter commits — never moves.
+     That split is the whole input contract, and it holds in the maze
+     and inside a lock alike.
+  ============================================================= */
+  var BIT={N:1,E:2,S:4,W:8}, DXX={N:0,E:1,S:0,W:-1}, DYY={N:-1,E:0,S:1,W:0};
+
+  function edgeId(x,y,dir){
+    if(dir==="N") return x+","+(y-1)+",S";
+    if(dir==="W") return (x-1)+","+y+",E";
+    return x+","+y+","+dir;
+  }
+  function doorAt(x,y,dir){
+    var id=edgeId(x,y,dir);
+    for(var i=0;i<G.doc.doors.length;i++){
+      var d=G.doc.doors[i];
+      if(d.cell.x+","+d.cell.y+","+d.side===id) return d;
+    }
+    return null;
+  }
+  function openAt(x,y,dir){
+    var w=G.doc.size.w,h=G.doc.size.h;
+    if(x<0||y<0||x>=w||y>=h) return false;
+    return !!(G.doc.open[y][x]&BIT[dir]);
+  }
+
+  function tryMove(dir){
+    if(G.moving||G.done) return;
+    G.facing=dir;
+    var nx=G.cx+DXX[dir], ny=G.cy+DYY[dir];
+    if(!openAt(G.cx,G.cy,dir)){ blip("bump"); return; }
+    var d=doorAt(G.cx,G.cy,dir);
+    if(d && !G.opened[d.id]){ G.atDoor=d; hintDoor(d); return; }
+    G.moving={fx:G.cx,fy:G.cy,tx:nx,ty:ny,t:0};
+    G.cx=nx; G.cy=ny;
+    blip("step");
+    if(window.__countStep) window.__countStep();
+  }
+
+  function hintDoor(d){
+    if(!G.held[d.keyId]) toast("LOCKED — FIND THE "+(d.kind==="math"?"NUMBER":"WORD")+" KEY");
+    else toast("PRESS ENTER TO USE THE LOCK");
+  }
+
+  /* Enter: pick up nothing, move nothing — only act on the lock ahead. */
+  function act(){
+    if(G.done) return;
+    var d=doorAt(G.cx,G.cy,G.facing);
+    if(!d){
+      /* also allow acting on any adjacent unopened door, so facing is forgiving */
+      ["N","E","S","W"].forEach(function(dir){
+        var c=doorAt(G.cx,G.cy,dir);
+        if(c&&!G.opened[c.id]&&!d) { d=c; G.facing=dir; }
+      });
+    }
+    if(!d){ toast("NOTHING TO USE HERE"); return; }
+    if(G.opened[d.id]){ toast("ALREADY OPEN"); return; }
+    if(!G.held[d.keyId]){ toast("LOCKED — FIND THE "+(d.kind==="math"?"NUMBER":"WORD")+" KEY"); return; }
+    openLock(d);
+  }
+
+  /* =============================================================
+     Locks.  Progress persists, so walking away costs nothing.
+  ============================================================= */
+  /* The journey is per player; the authored mazes and the word-lock switch
+     are per device. Profile.key knows which is which. */
+  function SAVEKEY(){ return window.Profile ? window.Profile.key("carrymaze") : "carrymaze"; }
+
+  /* Sound is optional: without sound.js every call here does nothing, and
+     the game plays on in silence. */
+  function blip(name){ if(window.Sound) window.Sound.play(name); }
+
+  var LOG=[];   /* every attempt at every lock, for playtest review */
+
+  /* Word locks are still a placeholder that opens on a keypress. Turn them
+     off and the generator stops producing them entirely — every lock becomes
+     a number lock. Flip it back when the word drill exists. */
+  var wordLocks = store.get("carrymaze.wordlocks") !== "0";
+  function applyWordLocks(){
+    if(wordLocks){
+      if(!Challenges.has("language")) return;   /* nothing to restore it from */
+    } else {
+      Challenges.unregister("language");
+    }
+    el("wordToggle").textContent = "WORD LOCKS: " + (wordLocks ? "ON" : "OFF");
+  }
+
+  var activeDoor=null, activeHandle=null;
+
+  function openLock(d){
+    activeDoor=d;
+    var meta=Challenges.meta(d.kind)||{};
+    el("lockTitle").textContent=meta.lockTitle||"LOCK";
+    el("lockTitle").className="";
+    el("lockSheet").className="sheet";
+    el("lockSub").textContent="Turn the lock "+d.required+" times";
+    drawPips();
+
+    var mount=el("lockSlot");
+    mount.innerHTML="";
+    mount.className="slot mounted";
+    try{
+      activeHandle=Challenges.mount(d.kind, mount, {
+        kind: d.kind,
+        required: d.required,
+        progress: G.turned[d.id]||0,
+        variant: null,                 /* phases will fill this in later */
+        hints: { showPace:false }       /* a draining bar reads as failure */
+      }, onAttempt);
+    }catch(e){
+      mount.textContent="No challenge registered for \""+d.kind+"\".";
+      activeHandle=null;
+    }
+    el("lockOverlay").classList.add("on");
+    if(activeHandle) activeHandle.focus();
+  }
+
+  /* Rule 1: the maze counts. The challenge just tells us what happened. */
+  function onAttempt(res){
+    var d=activeDoor;
+    if(!d) return;
+    LOG.push({t:Date.now(), door:d.id, kind:d.kind, zone:G.doc.level,
+              correct:res.correct, ms:Math.round(res.ms),
+              firstInSession:res.firstInSession, detail:res.detail||null});
+    blip(res.correct ? "right" : "wrong");
+    if(!res.correct) return;           /* wrong answers don't turn the lock */
+    G.turned[d.id]=(G.turned[d.id]||0)+1;
+    blip("lockTurn");
+    drawPips(); save();
+    if(G.turned[d.id]>=d.required){
+      G.opened[d.id]=true;
+      setTimeout(function(){
+        closeLock();
+        blip("doorOpen");
+        toast((d.kind==="math"?"NUMBER":"WORD")+" LOCK OPEN");
+        drawHud(); save();
+      },420);
+    }
+  }
+
+  function drawPips(){
+    var d=activeDoor, box=el("pips"), n=G.turned[d.id]||0;
+    box.innerHTML="";
+    for(var i=0;i<d.required;i++){
+      var p=document.createElement("div");
+      p.className="pip"+(i<n?" on":"");
+      box.appendChild(p);
+    }
+  }
+
+  /* Rule 4: abandoning drops the in-flight item so it can't skew the adapter. */
+  function closeLock(){
+    if(activeHandle){ activeHandle.abandon(); activeHandle.destroy(); }
+    activeHandle=null; activeDoor=null;
+    el("lockOverlay").classList.remove("on");
+    el("lockSlot").innerHTML="";
+    save();
+  }
+
+  /* =============================================================
+     GATE CHALLENGES
+
+     Same contract as a door, different task and much more ceremony. You
+     cannot fail one: the drill keeps easing until it is passable, so the
+     weight comes from what it takes and what it gives, not from risk.
+  ============================================================= */
+  var gateHandle=null, gateNeed=0, gateGot=0, gateKindNow=null, gateSecond=false;
+
+  function openGate(){
+    var kind = gateKind(J.gate);
+    gateKindNow = kind;
+    gateSecond = false;
+    gateNeed = 4; gateGot = 0;
+    var next = THEMES[Math.min(J.gate+1, THEMES.length-1)];
+    el("gateTitle").textContent = kind==="both" ? "THE KEYSTONE"
+      : kind==="word" ? "WORDSMITH GATE" : "NUMBERSMITH GATE";
+    el("gateSub").textContent = kind==="both"
+      ? "Four of each. Both crafts, one bridge."
+      : (next.name ? ("Four correct opens the way to " + next.name + ".")
+                   : "Four correct opens the way onward.");
+    mountGate(kind==="both" ? "word-gate" : (kind==="word"?"word-gate":"number-gate"));
+    drawGatePips();
+    el("gateOverlay").classList.add("on");
+  }
+
+  function mountGate(kindId){
+    var slot=el("gateSlot");
+    slot.innerHTML="";
+    if(gateHandle){ gateHandle.abandon(); gateHandle.destroy(); gateHandle=null; }
+    try{
+      gateHandle = Challenges.mount(kindId, slot, {
+        kind:kindId, required:gateNeed, progress:gateGot,
+        variant:"gate", hints:{ showPace:false }
+      }, onGateAttempt);
+      gateHandle.focus();
+    }catch(e){
+      slot.textContent = "No challenge registered for \""+kindId+"\".";
+    }
+  }
+
+  function onGateAttempt(res){
+    LOG.push({t:Date.now(), gate:J.gate, kind:gateKindNow, maze:J.maze,
+              correct:res.correct, ms:Math.round(res.ms), detail:res.detail||null});
+    blip(res.correct ? "right" : "wrong");
+    if(!res.correct) return;
+    gateGot++;
+    blip("lockTurn");
+    drawGatePips();
+    if(gateGot < gateNeed) return;
+    if(gateKindNow==="both" && !gateSecond){
+      /* the keystone wants both crafts: swap to the other half */
+      gateSecond=true; gateGot=0;
+      el("gateSub").textContent="Now the numbers.";
+      drawGatePips();
+      mountGate("number-gate");
+      return;
+    }
+    setTimeout(finishGate, 420);
+  }
+
+  function drawGatePips(){
+    var box=el("gatePips");
+    box.innerHTML="";
+    for(var i=0;i<gateNeed;i++){
+      var d=document.createElement("div");
+      d.className="pip"+(i<gateGot?" on":"");
+      box.appendChild(d);
+    }
+  }
+
+  function finishGate(){
+    if(gateHandle){ gateHandle.abandon(); gateHandle.destroy(); gateHandle=null; }
+    el("gateOverlay").classList.remove("on");
+    if(gateKindNow==="both") J.keystone=true;
+    else if(gateKindNow==="word") J.stones.word++;
+    else J.stones.number++;
+    J.gate++;
+    if(window.Sound) window.Sound.play("stone");
+    applyTheme(); drawBridge(); drawHud(); save();
+    pushWorld();
+    if(window.Sound && !journeyDone()) setTimeout(function(){ window.Sound.play("newLand"); }, 900);
+    if(journeyDone()){
+      pushWorld();
+      if(window.World) window.World.celebrate(true);
+      el("winOverlay").classList.add("on");
+      runWin();
+      if(window.Sound) window.Sound.play("win");
+      el("winBtn").focus();
+      /* first time only: she has something to hand over */
+      if(window.Unlocks && window.Unlocks.grant("sound")) giftPending=true;
+    } else {
+      el("clearSub").textContent = theme().name
+        ? ("Stone set. " + theme().name + " lies ahead.")
+        : "Stone set. New land ahead.";
+      el("clearOverlay").classList.add("on");
+      el("nextBtn").focus();
+    }
+  }
+
+  /* =============================================================
+     Pickups and the exit
+  ============================================================= */
+  function onEnterCell(){
+    G.doc.keys.forEach(function(k){
+      if(G.held[k.id]) return;
+      if(k.cell.x===G.cx && k.cell.y===G.cy){
+        G.held[k.id]=true;
+        blip("key");
+        toast("GOT A "+(k.kind==="math"?"NUMBER":"WORD")+" KEY");
+        drawHud();
+      }
+    });
+    if(G.cx===G.doc.exit.x && G.cy===G.doc.exit.y && !G.done){
+      G.done=true;
+      if(isGateMaze(J.maze) && !journeyDone()) openGate();
+      else {
+        el("clearSub").textContent = "Maze "+J.maze+" complete.";
+        el("clearOverlay").classList.add("on");
+        el("nextBtn").focus();
+      }
+    }
+    save();
+  }
+
+  /* =============================================================
+     THE BRIDGE
+
+     Seven stones on aa semicircular  arch: three out from the Wordsmith bank, three
+     from the Numbersmith bank, and the keystone last. Placed stones are
+     solid; the rest are outlines, so the gap in the middle says how far
+     is left without anyone having to read a number.
+  ============================================================= */
+  var bcv=el("bridge"), bctx=bcv.getContext("2d");
+
+  function stonePos(i){
+    /* 0..2 rise from the left bank, 3 is the keystone, 4..6 fall to the right */
+    var cx=bcv.width/2, cy=bcv.height-16, r=54;
+    var ang=Math.PI - (i/(TOTAL_GATES-1))*Math.PI;
+    return { x:Math.round(cx+r*Math.cos(ang)), y:Math.round(cy-r*Math.sin(ang)) };
+  }
+  function stoneFilled(i){
+    if(i===STONES_PER_SIDE) return J.keystone;
+    if(i<STONES_PER_SIDE)  return J.stones.word >= (i+1);
+    return J.stones.number >= (TOTAL_GATES-i);
+  }
+  function tower(x,base,h,w,col,dark){
+    bctx.fillStyle=dark; bctx.fillRect(x-1,base-h-1,w+2,h+1);
+    bctx.fillStyle=col;  bctx.fillRect(x,base-h,w,h);
+    for(var y=base-h+3;y<base-2;y+=5){ bctx.fillStyle=dark; bctx.fillRect(x+2,y,2,2); }
+  }
+  /* the transcribed castle if castle.js is present, plain towers if not */
+  function bank(x,base,kind){
+    if(window.Castle){ window.Castle.draw(bctx, x, base-window.Castle.size.h, kind, 1); return; }
+    var col = kind==="word" ? "#FF6BB3" : "#FFD52E";
+    var dark= kind==="word" ? "#7A2E58" : "#8A6E14";
+    tower(x+2,base,26,10,col,dark); tower(x+16,base,34,12,col,dark);
+  }
+
+  function drawBridge(){
+    var W=bcv.width, H=bcv.height;
+    var hillTop=H-16, valley=H-6, hillW=68;
+    bctx.fillStyle="#07102E"; bctx.fillRect(0,0,W,H);
+
+    /* Each kingdom keeps its own green hill; the maze lies in the valley
+       between them. What divides them is the wall, not water. */
+    bctx.fillStyle="#1F6E33"; bctx.fillRect(0,valley-2,W,H-valley+2);
+    bctx.fillStyle="#2E9A48"; bctx.fillRect(0,valley,W,H-valley);
+    for(var x=hillW;x<W-hillW;x+=13){
+      var wh = 7 + ((x*7)%3)*3;
+      bctx.fillStyle="#12225A"; bctx.fillRect(x,valley-wh,11,wh);
+      bctx.fillStyle="#24408C"; bctx.fillRect(x+1,valley-wh+1,9,wh-2);
+      bctx.fillStyle="#4A78D8"; bctx.fillRect(x+1,valley-wh+1,9,1);
+    }
+    if(window.Castle){
+      window.Castle.hill(bctx, 0, hillTop, hillW+10, valley-hillTop+8);
+      window.Castle.hill(bctx, W-hillW-10, hillTop, hillW+10, valley-hillTop+8);
+    } else {
+      bctx.fillStyle="#2E9A48";
+      bctx.fillRect(0,hillTop,hillW,H-hillTop); bctx.fillRect(W-hillW,hillTop,hillW,H-hillTop);
+    }
+
+    bank(0, hillTop, "word");
+    bank(W-64, hillTop, "number");
+
+    for(var i=0;i<TOTAL_GATES;i++){
+      var p=stonePos(i), on=stoneFilled(i), key=(i===STONES_PER_SIDE);
+      var kind = key ? "key" : (i<STONES_PER_SIDE ? "word" : "number");
+      if(window.Castle){
+        window.Castle.stone(bctx, p.x-window.Castle.stoneW/2, p.y-window.Castle.stoneH/2,
+                            kind||"key", 1, on);
+      } else {
+        if(on){ bctx.fillStyle="#24408C"; bctx.fillRect(p.x-5,p.y-4,10,8); }
+        else { bctx.strokeStyle="#2A3A72"; bctx.strokeRect(p.x-5.5,p.y-4.5,11,9); }
+      }
+    }
+  }
+
+  /* The ending is drawn by world.js across the whole sky — fireworks, the
+     finished bridge, and both kingdoms walking out to meet on it. Nothing
+     is left here but the call. */
+  function runWin(){ if(window.World) window.World.celebrate(true); }
+
+  /* =============================================================
+     Rendering
+  ============================================================= */
+  function camera(){
+    var mw=(2*G.doc.size.w+1)*B, mh=(2*G.doc.size.h+1)*B;
+    var vw=cv.width, vh=cv.height;
+    var pxp=(2*G.px+1)*B+B/2, pyp=(2*G.py+1)*B+B/2;
+    var ox=Math.round(pxp-vw/2), oy=Math.round(pyp-vh/2);
+    ox=Math.max(0,Math.min(ox,Math.max(0,mw-vw)));
+    oy=Math.max(0,Math.min(oy,Math.max(0,mh-vh)));
+    if(mw<vw) ox=-Math.round((vw-mw)/2);
+    if(mh<vh) oy=-Math.round((vh-mh)/2);
+    return {x:ox,y:oy};
+  }
+
+  function isWallBlock(bx,by){
+    var w=G.doc.size.w,h=G.doc.size.h;
+    if(bx<0||by<0||bx>2*w||by>2*h) return true;
+    var ox=bx%2, oy=by%2;
+    if(ox===1&&oy===1) return false;                       /* a cell        */
+    if(ox===0&&oy===0) return true;                        /* a pillar      */
+    /* even x, odd y: the gap east of cell (bx/2 - 1, (by-1)/2) */
+    if(ox===0&&oy===1) return !openAt(bx/2-1,(by-1)/2,"E");
+    /* odd x, even y: the gap south of cell ((bx-1)/2, by/2 - 1) */
+    if(ox===1&&oy===0) return !openAt((bx-1)/2,by/2-1,"S");
+    return true;
+  }
+
+  function px(bx,cam){ return bx*B-cam.x; }
+  function py(by,cam){ return by*B-cam.y; }
+
+  function draw(){
+    var cam=camera();
+    ctx.fillStyle=C.floor; ctx.fillRect(0,0,cv.width,cv.height);
+    var b0x=Math.max(0,Math.floor(cam.x/B)), b0y=Math.max(0,Math.floor(cam.y/B));
+    var b1x=Math.min(2*G.doc.size.w,Math.floor((cam.x+cv.width)/B));
+    var b1y=Math.min(2*G.doc.size.h,Math.floor((cam.y+cv.height)/B));
+
+    for(var by=b0y;by<=b1y;by++){
+      for(var bx=b0x;bx<=b1x;bx++){
+        var X=px(bx,cam), Y=py(by,cam);
+        if(isWallBlock(bx,by)){
+          ctx.fillStyle=C.wall;    ctx.fillRect(X,Y,B,B);
+          ctx.fillStyle=C.wallTop; ctx.fillRect(X,Y,B,3);
+          ctx.fillStyle=C.wallLow; ctx.fillRect(X,Y+B-3,B,3);
+        } else {
+          ctx.fillStyle=C.floor;   ctx.fillRect(X,Y,B,B);
+          if((bx+by)%2===0){ ctx.fillStyle=C.floorDot; ctx.fillRect(X+B/2-1,Y+B/2-1,2,2); }
+        }
+      }
+    }
+
+    /* The exit is the gate. Brown for an ordinary one; gold, and lit,
+       when it is the third — that is where a stone is waiting. */
+    var ex=px(2*G.doc.exit.x+1,cam), ey=py(2*G.doc.exit.y+1,cam);
+    var golden = isGateMaze(J.maze) && !journeyDone();
+    ctx.fillStyle = golden ? C.exitLow : "#6E4522";
+    ctx.fillRect(ex+1,ey+1,B-2,B-2);
+    ctx.fillStyle = golden ? C.exit : C.door;
+    ctx.fillRect(ex+3,ey+3,B-6,B-6);
+    ctx.fillStyle=C.ink; ctx.fillRect(ex+5,ey+5,B-10,B-10);
+    if(golden){
+      var t=(Date.now()/220|0)%4;
+      ctx.fillStyle="#FFFFFF";
+      ctx.fillRect(ex+6+((t)%2), ey+2, 1,1);
+      ctx.fillRect(ex+B-7-((t+1)%2), ey+B-3, 1,1);
+    }
+
+    /* keys still on the floor */
+    G.doc.keys.forEach(function(k){
+      if(G.held[k.id]) return;
+      var kx=px(2*k.cell.x+1,cam), ky=py(2*k.cell.y+1,cam);
+      drawKey(kx,ky,k.kind);
+    });
+
+    /* doors */
+    G.doc.doors.forEach(function(d){
+      var bx,by;
+      if(d.side==="E"){ bx=2*d.cell.x+2; by=2*d.cell.y+1; }
+      else { bx=2*d.cell.x+1; by=2*d.cell.y+2; }
+      drawDoor(px(bx,cam),py(by,cam),d,d.side==="E");
+    });
+
+    drawPlayer(px(2*G.px+1,cam),py(2*G.py+1,cam));
+  }
+
+  /* Both keys are the same gold with the same bow; only the bit differs.
+     13 x 5 in a 14px block, no outline — the dark floor is the outline. */
+  function drawKey(x,y,kind){
+    var rows = kind==="math" ? SPR.keyNum : SPR.keyWord;
+    stamp(rows, x+Math.floor((B-13)/2), y+Math.floor((B-5)/2), {"#":C.key});
+  }
+
+  /* The door faces you whichever edge it sits on, so the arch and the
+     keyhole never rotate. Progress notches run down the hinge side. */
+  function drawDoor(x,y,d,vertical){
+    if(G.opened[d.id]){
+      ctx.fillStyle=C.floor; ctx.fillRect(x,y,B,B);
+      ctx.fillStyle=C.door;
+      if(vertical){ ctx.fillRect(x,y,2,B); ctx.fillRect(x+B-2,y,2,B); }
+      else { ctx.fillRect(x,y,B,2); ctx.fillRect(x,y+B-2,B,2); }
+      return;
+    }
+    var rows = d.kind==="math" ? SPR.doorNum : SPR.doorWord;
+    stamp(rows, x, y, {o:C.ink, b:C.door, l:C.doorHi});
+    var n=G.turned[d.id]||0;
+    ctx.fillStyle=C.white;
+    for(var i=0;i<n && i<5;i++) ctx.fillRect(x+2, y+4+i*2, 1, 1);
+  }
+
+  function drawPlayer(x,y){
+    ctx.fillStyle=C.ink;      ctx.fillRect(x+2,y+2,B-4,B-4);
+    ctx.fillStyle=C.bodyDark; ctx.fillRect(x+3,y+3,B-6,B-6);
+    ctx.fillStyle=C.body;     ctx.fillRect(x+4,y+4,B-8,B-7);
+    /* the visor leans the way you're facing, so heading is always visible */
+    var ox=DXX[G.facing]*2, oy=DYY[G.facing]*2;
+    ctx.fillStyle=C.white;
+    ctx.fillRect(x+B/2-3+ox, y+B/2-2+oy, 6, 3);
+    ctx.fillStyle=C.ink;
+    ctx.fillRect(x+B/2-2+ox, y+B/2-1+oy, 1, 1);
+    ctx.fillRect(x+B/2+1+ox, y+B/2-1+oy, 1, 1);
+  }
+
+  /* =============================================================
+     Loop
+  ============================================================= */
+  var STEP=125;
+  var last=performance.now();
+  function frame(now){
+    /* A rAF loop dies the moment one frame throws, and everything after
+       it — walking included — dies with it. Movement is stepped first and
+       separately, and drawing is wrapped, so a fault in the scenery can
+       never stop the game from being playable. */
+    var dt=Math.min(120, Math.max(0, now-last)); last=now;
+    try{
+      if(G.moving){
+        G.moving.t+=dt;
+        var k=Math.min(1,G.moving.t/STEP);
+        G.px=G.moving.fx+(G.moving.tx-G.moving.fx)*k;
+        G.py=G.moving.fy+(G.moving.ty-G.moving.fy)*k;
+        if(k>=1){
+          G.px=G.moving.tx; G.py=G.moving.ty; G.moving=null;
+          onEnterCell();
+          if(heldDir && !overlayOpen()) tryMove(heldDir);
+        }
+      }
+    }catch(e){ G.moving=null; reportFault("movement",e); }
+    try{ draw(); }catch(e){ reportFault("maze",e); }
+    try{ drawBridge(); }catch(e){ reportFault("bridge",e); }
+    requestAnimationFrame(frame);
+  }
+
+  /* say it once, in the console, rather than a hundred times a second */
+  var faulted={};
+  function reportFault(where,e){
+    if(faulted[where]) return;
+    faulted[where]=true;
+    try{ console.error("Am+zed Kingdoms: "+where+" failed and was skipped —", e); }catch(x){}
+  }
+
+  function overlayOpen(){
+    return !!document.querySelector(".in-wrap.on")
+        || el("giftOverlay").classList.contains("on")
+        || el("workOverlay").classList.contains("on")
+        || el("soundPanel").classList.contains("on")
+        || el("playerOverlay").classList.contains("on")
+        || el("authoredOverlay").classList.contains("on")
+        || el("gateOverlay").classList.contains("on")
+        || el("winOverlay").classList.contains("on")
+        || el("lockOverlay").classList.contains("on")
+        || el("clearOverlay").classList.contains("on")
+        || el("voiceOverlay").classList.contains("on")
+        || el("jsonOverlay").classList.contains("on");
+  }
+
+  /* =============================================================
+     Input
+  ============================================================= */
+  var heldDir=null;
+  var KEYMAP={ArrowUp:"N",ArrowRight:"E",ArrowDown:"S",ArrowLeft:"W",
+              w:"N",d:"E",s:"S",a:"W",W:"N",D:"E",S:"S",A:"W"};
+
+  document.addEventListener("keydown",function(e){
+    if(overlayOpen()){
+      if(e.key==="Escape"&&el("lockOverlay").classList.contains("on")){ e.preventDefault(); closeLock(); }
+      return;
+    }
+    var dir=KEYMAP[e.key];
+    if(dir){ e.preventDefault(); heldDir=dir; tryMove(dir); return; }
+    if(e.key==="Enter"||e.key===" "){ e.preventDefault(); act(); }
   });
+  document.addEventListener("keyup",function(e){
+    if(KEYMAP[e.key] && KEYMAP[e.key]===heldDir) heldDir=null;
+  });
+
+  /* d-pad: same contract, tap and hold both work */
+  var padTimer=null;
+  Array.prototype.forEach.call(document.querySelectorAll("[data-dir]"),function(b){
+    var dir=b.getAttribute("data-dir");
+    var go=function(ev){ ev.preventDefault(); heldDir=dir; tryMove(dir); };
+    b.addEventListener("pointerdown",go);
+    b.addEventListener("pointerup",function(){ heldDir=null; });
+    b.addEventListener("pointerleave",function(){ if(heldDir===dir) heldDir=null; });
+  });
+  el("actBtn").addEventListener("click",function(){ act(); });
+
+  if(window.matchMedia && matchMedia("(pointer: coarse)").matches) el("padwrap").classList.add("on");
+
+  /* =============================================================
+     Chrome
+  ============================================================= */
+  var toastTimer=null;
+  function toast(msg){
+    var t=el("toast");
+    t.textContent=msg; t.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){ t.classList.remove("on"); },1500);
+  }
+  function drawHud(){
+    if(window.World && typeof pushWorld==="function") pushWorld();
+    el("lvl").textContent=J.maze;
+    var toGate = MAZES_PER_GATE - ((J.maze-1) % MAZES_PER_GATE);
+    var gateText = journeyDone() ? "BRIDGE COMPLETE"
+      : isGateMaze(J.maze) ? "GOLD GATE AHEAD" : ("GOLD GATE IN "+toGate);
+    if(el("gateNext")) el("gateNext").textContent = gateText;
+    if(el("gateNextTop")) el("gateNextTop").textContent = gateText;
+    var opened=Object.keys(G.opened).length;
+    el("locks").textContent=opened+"/"+G.doc.doors.length;
+    var ring=el("keyring");
+    ring.innerHTML='<span class="label">Keys</span>';
+    G.doc.keys.forEach(function(k){
+      if(!G.held[k.id]) return;
+      var c=document.createElement("span");
+      c.className="kchip"+(G.opened[k.id]?" spent":"");
+      var m=Challenges.meta(k.kind)||{};
+      c.textContent=m.keyLabel||"?";
+      c.title=k.kind==="math"?"number key":"word key";
+      ring.appendChild(c);
+    });
+  }
+
+  el("leaveBtn").addEventListener("click",closeLock);
+  el("nextBtn").addEventListener("click",function(){
+    el("clearOverlay").classList.remove("on");
+    J.maze++;
+    startMaze(G.doc.level+1, (Date.now()^(G.doc.level*2654435761))>>>0, null);
+  });
+  var giftPending=false;
+  el("winBtn").addEventListener("click",function(){
+    /* travel again: the world resets, the skills do not */
+    el("winOverlay").classList.remove("on");
+    if(window.World) window.World.celebrate(false);
+    if(giftPending){ giftPending=false; setTimeout(offerGift,240); }
+    J = { maze:1, gate:0, stones:{word:0,number:0}, keystone:false };
+    applyTheme(); drawBridge(); pushWorld();
+    startMaze(1,(Date.now()*48271)>>>0,null);
+  });
+  el("newMaze").addEventListener("click",function(){
+    startMaze(G.doc.level, (Date.now()*2654435761)>>>0, null);
+  });
+  /* The word drill owns its own storage, so the maze asks it to change the
+     voice rather than writing the preference itself. */
+  var WS = window.WordChallengeState || null;
+  if(WS){
+    el("voiceBtn").hidden = false;
+    el("voiceBtn").addEventListener("click",function(){
+      WS.loadVoices(function(list){
+        var sel=el("voiceSel");
+        sel.innerHTML="";
+        var en=list.filter(function(v){ return /^en/i.test(v.lang||""); });
+        (en.length?en:list).forEach(function(v){
+          var o=document.createElement("option");
+          o.value=v.name;
+          o.textContent=v.name+(v.localService?"":"  (network)");
+          sel.appendChild(o);
+        });
+        var cur=WS.currentVoice();
+        if(cur) sel.value=cur.name;
+        el("voiceNow").textContent = cur ? "Now using "+cur.name : "No voice available";
+        el("voiceOverlay").classList.add("on");
+      });
+    });
+    el("voiceSel").addEventListener("change",function(){
+      WS.setVoice(this.value);
+      var cur=WS.currentVoice();
+      el("voiceNow").textContent = cur ? "Now using "+cur.name : "No voice available";
+      WS.say("ready");
+    });
+    el("voiceTest").addEventListener("click",function(){ WS.say("here are the words"); });
+    el("voiceClose").addEventListener("click",function(){ el("voiceOverlay").classList.remove("on"); });
+  }
+
+  /* Mazes drawn in the editor. The document is the same shape the
+     generator emits, so nothing here needs to know which made it. */
+  function authoredList(){
+    try{ return JSON.parse(localStorage.getItem("carrymaze.authored")||"[]"); }
+    catch(e){ return []; }
+  }
+  /* ---- who is playing ---------------------------------------------
+     Progress lives in this browser, so without this two children on one
+     tablet share a ladder and a bridge. The first player carries no
+     prefix, which means a save made before profiles existed is simply
+     Player 1 and nothing has to be migrated. */
+  function paintWho(){
+    if(!window.Profile) { el("whoBtn").hidden=true; return; }
+    var nm = window.Profile.current().name.toUpperCase();
+    if(el("whoBtn")) el("whoBtn").textContent = nm;
+    if(el("skyPlayer")) el("skyPlayer").textContent = nm;
+  }
+  var editingId=null;
+  function buildPlayers(){
+    var box=el("playerList"); box.innerHTML="";
+    var cur=window.Profile.current();
+    window.Profile.list().forEach(function(p){
+      var row=document.createElement("div");
+      row.className="row"; row.style.marginBottom="7px";
+
+      if(p.id===editingId){
+        /* renaming in place, so nobody has to delete a player to fix a name */
+        var input=document.createElement("input");
+        input.type="text"; input.value=p.name; input.maxLength=16;
+        input.style.cssText="flex:1;min-width:90px;background:#0A1038;color:#fff;"+
+          "border:3px solid var(--gold);padding:7px;font-family:var(--screen);font-size:.9rem";
+        var save=document.createElement("button");
+        save.type="button"; save.className="btn"; save.textContent="SAVE";
+        var commit=function(){
+          window.Profile.rename(p.id, input.value);
+          editingId=null; buildPlayers(); paintWho();
+        };
+        save.addEventListener("click",commit);
+        input.addEventListener("keydown",function(e){
+          if(e.key==="Enter"){ e.preventDefault(); commit(); }
+          if(e.key==="Escape"){ e.preventDefault(); editingId=null; buildPlayers(); }
+          e.stopPropagation();
+        });
+        row.appendChild(input); row.appendChild(save);
+        box.appendChild(row);
+        setTimeout(function(){ input.focus(); input.select(); },0);
+        return;
+      }
+
+      var b=document.createElement("button");
+      b.type="button"; b.className="btn"+(p.id===cur.id?"":" ghost");
+      b.style.cssText="flex:1;text-align:left";
+      b.textContent=(p.id===cur.id?"\u25B8 ":"  ")+p.name;
+      b.addEventListener("click",function(){
+        if(p.id===cur.id){ el("playerOverlay").classList.remove("on"); return; }
+        if(!confirmSwitch(p.name)) return;
+        window.Profile.use(p.id);
+        buildPlayers(); paintWho();
+        startFresh();
+        el("playerOverlay").classList.remove("on");
+        toast("PLAYING AS "+p.name.toUpperCase());
+      });
+      row.appendChild(b);
+
+      var ren=document.createElement("button");
+      ren.type="button"; ren.className="btn ghost"; ren.textContent="NAME";
+      ren.title="Rename "+p.name;
+      ren.addEventListener("click",function(e){
+        e.stopPropagation();
+        editingId=p.id; buildPlayers();
+      });
+      row.appendChild(ren);
+
+      if(window.Profile.list().length>1){
+        var del=document.createElement("button");
+        del.type="button"; del.className="btn ghost"; del.textContent="X";
+        del.title="Delete "+p.name;
+        del.addEventListener("click",function(e){
+          e.stopPropagation();
+          if(!confirm("Delete "+p.name+"?\n\n"+
+                      "Player's reading and number levels, and bridge progress will be "+
+                      "deleted, and cannot be undone.\n"+
+                      "If you only want to change your Player name, press NAME instead.")) return;
+          window.Profile.remove(p.id); buildPlayers(); paintWho();
+        });
+        row.appendChild(del);
+      }
+      box.appendChild(row);
+    });
+  }
+
+  /* Switching abandons the maze being stood in — keys picked up and locks
+     part-turned go with it, because they belong to that attempt. Only worth
+     asking about when there is something to lose. */
+  function progressInThisMaze(){
+    var n=Object.keys(G.held).length;
+    Object.keys(G.turned).forEach(function(id){ n += G.turned[id]||0; });
+    return n;
+  }
+  function confirmSwitch(name){
+    if(G.done || progressInThisMaze()===0) return true;
+    return confirm("Leave this maze and play as "+name+"?\n\n"+
+      "The keys and locks in this maze will be lost. "+
+      "Everything already earned is kept.");
+  }
+
+  /* a switched player starts their own journey, wherever they left it */
+  function startFresh(){
+    if(window.MathChallengeState && window.MathChallengeState.reload) window.MathChallengeState.reload();
+    if(window.WordChallengeState && window.WordChallengeState.reload) window.WordChallengeState.reload();
+    var saved=load();
+    J = { maze:1, gate:0, stones:{word:0,number:0}, keystone:false };
+    if(saved && saved.journey){
+      J.maze=saved.journey.maze||1; J.gate=saved.journey.gate||0;
+      J.stones=saved.journey.stones||{word:0,number:0};
+      J.keystone=!!saved.journey.keystone;
+    }
+    applyTheme();
+    if(saved && typeof saved.level==="number") startMaze(saved.level,saved.seed,saved);
+    else startMaze(1,(Date.now()*48271)>>>0,null);
+    drawBridge(); drawHud(); pushWorld();
+  }
+  if(window.Profile){
+    var openPicker=function(){
+      if(overlayOpen()) return;
+      editingId=null;
+      buildPlayers();
+      el("saveBox").hidden=true; el("playerNote").textContent="";
+      el("playerOverlay").classList.add("on");
+    };
+    el("whoBtn").addEventListener("click",openPicker);
+    el("skyPlayer").addEventListener("click",openPicker);
+    el("addPlayer").addEventListener("click",function(){
+      var nm=(el("newName").value||"").trim() || "the new player";
+      if(!confirmSwitch(nm)) return;
+      var p=window.Profile.create(el("newName").value);
+      el("newName").value="";
+      buildPlayers(); paintWho(); startFresh();
+      el("playerOverlay").classList.remove("on");
+      toast("NEW PLAYER: "+p.name.toUpperCase());
+    });
+    el("exportBtn").addEventListener("click",function(){
+      var box=el("saveBox");
+      box.hidden=false;
+      box.value=window.Profile.exportPlayer(window.Profile.current().id)||"";
+      box.select();
+      el("playerNote").textContent="Copy this and keep it somewhere safe. It restores this player on any device.";
+    });
+    el("importBtn").addEventListener("click",function(){
+      var box=el("saveBox");
+      if(box.hidden){ box.hidden=false; box.value=""; box.focus();
+        el("playerNote").textContent="Paste a saved player, then press LOAD FROM TEXT again."; return; }
+      if(!confirmSwitch("the loaded player")) return;
+      var r=window.Profile.importPlayer(box.value);
+      el("playerNote").textContent = r.ok ? ("Loaded "+r.name+".") : r.why;
+      if(r.ok){ buildPlayers(); paintWho(); startFresh(); }
+    });
+    el("playerClose").addEventListener("click",function(){ el("playerOverlay").classList.remove("on"); });
+  }
+
+  el("authoredBtn").addEventListener("click",function(){
+    var box=el("authoredList"), list=authoredList();
+    box.innerHTML="";
+    if(!list.length){
+      box.innerHTML='<p class="label">Nothing saved yet. Draw one in maze-editor.html.</p>';
+    } else {
+      list.forEach(function(item){
+        var b=document.createElement("button");
+        b.type="button"; b.className="btn"; b.style.cssText="display:block;width:100%;margin-bottom:7px;text-align:left";
+        b.textContent=item.name+"   "+item.doc.size.w+"x"+item.doc.size.h+
+          "   "+item.doc.doors.length+" LOCKS";
+        b.addEventListener("click",function(){
+          var v=validate(item.doc);
+          if(!v.ok){ toast("THAT MAZE CANNOT BE FINISHED"); return; }
+          el("authoredOverlay").classList.remove("on");
+          G.doc=JSON.parse(JSON.stringify(item.doc));
+          G.held={}; G.turned={}; G.opened={}; G.done=false; G.moving=null;
+          G.cx=G.doc.spawn.x; G.cy=G.doc.spawn.y; G.px=G.cx; G.py=G.cy;
+          drawHud(); save();
+          toast("PLAYING: "+item.name.toUpperCase());
+        });
+        box.appendChild(b);
+      });
+    }
+    el("authoredOverlay").classList.add("on");
+  });
+  el("authoredClose").addEventListener("click",function(){
+    el("authoredOverlay").classList.remove("on");
+  });
+
+  /* The arrow-key legend is worth a lot on a first run and nothing at all
+     on a twentieth. It goes away once a player has walked a few hundred
+     steps, and comes back with the tools if they want it. */
+  (function(){
+    var lp=el("legendPanel");
+    if(!lp) return;
+    var steps=0;
+    try{ steps=parseInt(localStorage.getItem("carry.steps")||"0",10)||0; }catch(e){}
+    function bump(){
+      steps++;
+      if(steps%25===0){ try{ localStorage.setItem("carry.steps",String(steps)); }catch(e){} }
+      if(steps>200) lp.hidden=true;
+    }
+    lp.hidden = steps>200;
+    window.__countStep=bump;
+  })();
+
+  /* The tools are for building, not for playing. Folded away by default so
+     the maze and the bridge fit on one screen. */
+  el("toolsToggle").addEventListener("click",function(){
+    var f=el("foot");
+    f.hidden=!f.hidden;
+    this.innerHTML = f.hidden ? "TOOLS &#9662;" : "TOOLS &#9652;";
+  });
+
+  el("wordToggle").addEventListener("click",function(){
+    wordLocks = !wordLocks;
+    store.set("carrymaze.wordlocks", wordLocks ? "1" : "0");
+    /* door kinds are baked into the maze document, so this needs a fresh one */
+    location.reload();
+  });
+  el("wipe").addEventListener("click",function(){
+    J = { maze:1, gate:0, stones:{word:0,number:0}, keystone:false };
+    applyTheme();
+    startMaze(1, (Date.now()*48271)>>>0, null);
+  });
+  el("dumpLog").addEventListener("click",function(){
+    el("jsonBox").value = LOG.length
+      ? JSON.stringify(LOG,null,1)
+      : "No attempts yet. Open a lock and answer something.";
+    el("jsonOverlay").classList.add("on");
+  });
+  el("dumpDoc").addEventListener("click",function(){
+    el("jsonBox").value=JSON.stringify(G.doc,null,1);
+    el("jsonOverlay").classList.add("on");
+  });
+  el("jsonClose").addEventListener("click",function(){ el("jsonOverlay").classList.remove("on"); });
+
+  /* read-only view of the journey, for playtest tooling and the console */
+  window.MazeJourney = {
+    state:function(){ return { maze:J.maze, gate:J.gate,
+      stones:{word:J.stones.word, number:J.stones.number},
+      keystone:J.keystone, theme:theme().name, themeIdx:themeIdx() }; },
+    themes:function(){ return THEMES.map(function(t){ return t.name; }); },
+    shape:function(){ return { mazesPerGate:MAZES_PER_GATE, stonesPerSide:STONES_PER_SIDE,
+      totalGates:TOTAL_GATES, totalMazes:TOTAL_GATES*MAZES_PER_GATE }; },
+    log:function(){ return LOG.slice(); },
+    /* what would be lost by walking away from this maze right now */
+    inProgress:function(){ return progressInThisMaze(); }
+  };
+
+  /* The story plays once, over the top of the running maze. Any key
+     advances it, which teaches the action key before a lock needs it.
+     If intro.js is missing the game simply starts. */
+  if(window.Intro){
+    el("storyBtn").hidden = false;
+    el("storyBtn").addEventListener("click",function(){
+      if(overlayOpen()) return;
+      window.Intro.play(function(){ focusGame(); });
+    });
+    if(!window.Intro.seen()) setTimeout(function(){ window.Intro.play(function(){ focusGame(); }); },80);
+  }
+  function focusGame(){ try{ cv.focus(); }catch(e){} }
+
+  /* the title is drawn, not set in type, so it scales with everything else */
+  /* The background is the board: the kingdoms stand on hills at the edges,
+     the bridge arches over the maze window, the title hangs in the sky.
+     When the screen is too narrow for any of that, the compact bridge
+     comes back into the panel — progress has to be visible either way. */
+  var worldPending=0;
+  function pushWorld(){
+    /* many things change the readouts at once, so paint the world once for
+       all of them rather than once each */
+    if(worldPending) return;
+    worldPending=requestAnimationFrame(function(){ worldPending=0; pushWorldNow(); });
+  }
+  function pushWorldNow(){
+    if(!window.World) return;
+    var r=cv.getBoundingClientRect();
+    window.World.setState({
+      stones:{word:J.stones.word, number:J.stones.number},
+      keystone:J.keystone,
+      total:TOTAL_GATES, perSide:STONES_PER_SIDE,
+      theme:theme(),
+      mazeRect:(function(){
+        var app=document.querySelector(".app").getBoundingClientRect();
+        /* The bridge is placed against the bottom of the MAZE, not of the
+           column — the column now runs to the floor so the tools can sit
+           on the grass, and measuring that would leave no band at all. */
+        return { top:r.top, left:r.left, width:r.width,
+                 appTop:app.top, appBottom:r.bottom + 8 };
+      })()
+    });
+    var opened=Object.keys(G.opened).length;
+    /* Filter FIRST, then map. Mapping first and filtering by index reads
+       the index of the mapped array against the original one, so as soon
+       as a key is skipped every chip after it shows the wrong kingdom. */
+    var keys=G.doc.keys.filter(function(k){ return G.held[k.id]; })
+                       .map(function(k){
+                         return { kind:k.kind, spent:!!G.opened[k.id] };
+                       });
+    var toGate = MAZES_PER_GATE - ((J.maze-1) % MAZES_PER_GATE);
+    window.World.setState({ hud:{
+      maze:J.maze,
+      locks:opened+"/"+G.doc.doors.length,
+      keys:keys,
+      land:theme().name,
+      gate: journeyDone() ? "BRIDGE COMPLETE"
+            : isGateMaze(J.maze) ? "GOLD GATE AHEAD" : ("GOLD GATE IN "+toGate),
+      player: window.Profile ? window.Profile.current().name.toUpperCase() : ""
+    }});
+    /* Everything in the top panel is also in the sky, so when there is room
+       for the sky version the panel is not redundant — it is in the way.
+       The player button is the exception: it can be pressed, so it moves to
+       the sky rather than disappearing with the rest. */
+    var narrow=!window.World.roomy();
+    el("topPanel").hidden=!narrow;
+    /* Keyed to roomy(), NOT to bridgeFits(). Keying it to the band was a
+       loop: showing the panel made the column taller, which ate the band,
+       which kept the panel showing. And when the world draws the scene at
+       all, a second copy of it in a box is redundant. */
+    el("journeyPanel").hidden = !narrow;
+    /* the speaker stays wherever the game is; the player name has a home in
+       the panel when the sky is too narrow to hold it */
+    el("skyPlayer").hidden=narrow;
+    if(narrow) drawBridge();
+  }
+  if(window.World){
+    window.World.attach(el("world"));
+    window.addEventListener("resize", pushWorld);
+    pushWorld();                 /* at once, so nothing renders empty */
+    setTimeout(pushWorld,0);     /* and again once layout has settled */
+  }
+
+  /* =============================================================
+     THE GIFT
+
+     She built every lock in this maze. A child who has answered them
+     all has earned the instruments, and has heard the game often
+     enough to have opinions about how it sounds. It is offered once,
+     in her voice, and then it stays.
+  ============================================================= */
+  var GIFT_LINE =
+    "You answered every one of my locks. Nobody has done that before. " +
+    "So take these two little tunes — the Wordsmith line and the Numbersmith line. " +
+    "They are yours now. Change them however you like, and change every other " +
+    "sound in my maze while you are at it. I shall be curious to hear what you do.";
+
+  function offerGift(){
+    el("giftLine").textContent = GIFT_LINE;
+    el("giftWhere").textContent =
+      "The workshop lives behind the note beside the speaker, up in the sky. It will be there whenever you want it.";
+    el("giftOverlay").classList.add("on");
+    if(window.WordChallengeState && window.WordChallengeState.say)
+      window.WordChallengeState.say(GIFT_LINE, function(){});
+    el("giftBoth").focus();
+  }
+  function closeGift(){
+    el("giftOverlay").classList.remove("on");
+    try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
+    paintTools();
+  }
+  el("giftWord").addEventListener("click",function(){ if(window.Sound) window.Sound.play("gateWord"); });
+  el("giftNum").addEventListener("click",function(){ if(window.Sound) window.Sound.play("gateNumber"); });
+  el("giftBoth").addEventListener("click",function(){ if(window.Sound) window.Sound.play("win","united"); });
+  el("giftLater").addEventListener("click",closeGift);
+  el("giftOpen").addEventListener("click",function(){ closeGift(); openWorkshop("sound-test.html"); });
+
+  /* ---- the workshop ---- */
+  function openWorkshop(page){
+    if(overlayOpen() && !el("workOverlay").classList.contains("on")) return;
+    el("workFrame").src = page || "sound-test.html";
+    el("workOverlay").classList.add("on");
+  }
+  function closeWorkshop(){
+    el("workOverlay").classList.remove("on");
+    el("workFrame").src = "about:blank";
+    if(window.Sound && window.Sound.reload) window.Sound.reload();
+  }
+  el("workBench").addEventListener("click",function(){ el("workFrame").src="sound-test.html"; });
+  el("workSeq").addEventListener("click",function(){ el("workFrame").src="sequencer.html"; });
+  el("workClose").addEventListener("click",closeWorkshop);
+  el("workRestore").addEventListener("click",function(){
+    if(!window.Sound) return;
+    if(!confirm("Put every sound back the way it was?\n\nYour tunes will be forgotten.")) return;
+    var d=window.Sound.defaults();
+    Object.keys(d).forEach(function(k){ window.Sound.setChoice(k,d[k]); });
+    window.Sound.events().forEach(function(e){ window.Sound.setPattern(e,null); });
+    el("workFrame").src=el("workFrame").src;   /* let the tool re-read it */
+    toast("SOUNDS RESTORED");
+  });
+
+  /* the note beside the speaker, once it has been earned */
+  function paintTools(){
+    var b=el("skyTools");
+    if(!b) return;
+    var earned = window.Unlocks && window.Unlocks.has("sound");
+    b.hidden = !earned;
+  }
+
+  /* ---- sound, controllable from inside the game ---------------- */
+  (function(){
+    var btn=el("skySound"), panel=el("soundPanel"), icon=el("soundIcon");
+    if(!btn) return;
+    if(!window.Sound || !window.Sound.available()){ btn.hidden=true; return; }
+    var g=icon.getContext("2d");
+    function drawIcon(){
+      var muted=window.Sound.muted(), s=2;
+      g.clearRect(0,0,icon.width,icon.height);
+      var ink="#0A1C4A";
+      g.fillStyle=ink;
+      /* a little speaker, drawn rather than typed, so it matches the world */
+      g.fillRect(1*s,3*s,2*s,3*s);
+      g.fillRect(3*s,2*s,1*s,5*s);
+      g.fillRect(4*s,1*s,1*s,7*s);
+      if(muted){
+        g.fillStyle="#C8102E";
+        for(var i=0;i<5;i++){ g.fillRect((6+i)*s,(2+i)*s,s,s); g.fillRect((10-i)*s,(2+i)*s,s,s); }
+      } else {
+        g.fillRect(6*s,3*s,1*s,3*s);
+        g.fillRect(8*s,2*s,1*s,5*s);
+        g.fillRect(10*s,1*s,1*s,7*s);
+      }
+    }
+    function paint(){
+      drawIcon();
+      el("soundToggle").textContent = window.Sound.muted() ? "OFF" : "ON";
+      el("soundToggle").className = "btn" + (window.Sound.muted() ? "" : " ghost");
+    }
+    btn.addEventListener("click",function(e){
+      e.stopPropagation();
+      panel.classList.toggle("on");
+      if(panel.classList.contains("on")) blip("key");
+    });
+    el("soundToggle").addEventListener("click",function(){
+      window.Sound.mute(!window.Sound.muted());
+      paint();
+      if(!window.Sound.muted()) blip("key");
+    });
+    el("soundVol").value=window.Sound.volume();
+    el("soundVol").addEventListener("input",function(){
+      window.Sound.volume(parseFloat(this.value));
+      blip("step");
+    });
+    document.addEventListener("click",function(e){
+      if(!panel.contains(e.target) && e.target!==btn && !btn.contains(e.target))
+        panel.classList.remove("on");
+    });
+    el("soundVol").addEventListener("click",function(e){ e.stopPropagation(); });
+    paint();
+  })();
+
+  /* a little note, drawn rather than typed, so it matches the world */
+  (function(){
+    var b=el("skyTools"), ic=el("toolsIcon");
+    if(!b||!ic) return;
+    var g=ic.getContext("2d"), s=2, ink="#0A1C4A";
+    g.fillStyle=ink;
+    g.fillRect(7*s,1*s,1*s,6*s);          /* stem   */
+    g.fillRect(8*s,1*s,3*s,1*s);          /* flag   */
+    g.fillRect(10*s,2*s,1*s,2*s);
+    g.fillRect(5*s,6*s,3*s,3*s);          /* head   */
+    g.fillRect(4*s,7*s,1*s,2*s);
+    b.addEventListener("click",function(e){
+      e.stopPropagation();
+      openWorkshop("sound-test.html");
+    });
+  })();
+
+  /* A missing .js file 404s quietly and the placeholder stays, which is
+     the right behaviour for a half-built game and a terrible one for a
+     finished folder — the game looks like it has silently reverted. So
+     say plainly which files did not arrive. */
+  (function(){
+    var NEEDED = {
+      "math":        "math-challenge.js",
+      "language":    "word-challenge.js",
+      "word-gate":   "word-gate.js",
+      "number-gate": "number-gate.js"
+    };
+    var missing = [];
+    Object.keys(NEEDED).forEach(function(kind){
+      var m = Challenges.meta(kind);
+      if(!m || m.placeholder) missing.push(NEEDED[kind]);
+    });
+    if(!window.WordSentences) missing.push("word-sentences.js");
+    if(!missing.length) return;
+    var box=document.createElement("div");
+    box.style.cssText="position:fixed;left:12px;bottom:12px;z-index:60;max-width:340px;"+
+      "background:#3A1015;border:4px solid #FF8A8A;color:#FFD9D9;padding:12px;"+
+      "font-family:var(--screen);font-size:.86rem;line-height:1.5";
+    box.innerHTML="<b>Some files did not load.</b><br>"+
+      "The locks are showing placeholders because these are missing from the "+
+      "same folder as index.html:<br><br><code style=\"color:#FFD52E\">"+
+      missing.join("<br>")+"</code>"+
+      "<br><br><button type=\"button\" style=\"font-family:var(--pixel);font-size:.44rem;"+
+      "background:none;border:0;border-bottom:2px solid #FFD9D9;color:#FFD9D9;"+
+      "padding:0 0 2px;cursor:pointer\">DISMISS</button>";
+    box.querySelector("button").addEventListener("click",function(){ box.remove(); });
+    document.body.appendChild(box);
+    try{ console.error("Am+zed Kingdoms: missing files —", missing.join(", ")); }catch(e){}
+  })();
+
+  paintWho();
+  paintTools();
+  applyWordLocks();
+  applyTheme();
+
+  var saved=load();
+  if(saved && typeof saved.level==="number") startMaze(saved.level,saved.seed,saved);
+  else startMaze(1,(Date.now()*48271)>>>0,null);
+  requestAnimationFrame(frame);
 })();
 </script>
 </body>
