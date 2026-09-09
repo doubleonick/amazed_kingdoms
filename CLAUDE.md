@@ -68,7 +68,9 @@ that froze the player.
 - `node --check` every file after editing. The inline scripts in `index.html`
   need extracting first — there are three of them.
 - `node check-sentences.js` after touching carrier sentences. It rebuilds every
-  possible gate item and reports any with two right answers.
+  possible gate item and reports any with two right answers, and **exits
+  non-zero** if it finds one, so it can stand in front of a release. No
+  install needed — it loads the game's files into a bare `vm` sandbox.
 - For layout questions, **ask for a screenshot from the real browser.** A
   preview composed from drawing calls cannot show an HTML panel that should not
   be there, and once misled us both for two rounds.
