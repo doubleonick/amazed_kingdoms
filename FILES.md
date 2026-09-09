@@ -38,11 +38,13 @@ left, and in the browser console.
 | `speech-test.html` | diagnose a device with no voice |
 | `check-sentences.js` | run with node after editing carriers |
 | `tools/make-icons.py` | regenerate the app icons from `castle.js` |
-| `tools/make-desktop-icon.py` | regenerate `icon-maze.ico` from `sample-maze.json` |
+| `tools/make-desktop-icon.py` | regenerate `icon-castle.ico` and `icon-maze.ico` |
+| `tools/install-shortcut.ps1` | put the game on a Windows desktop, one command |
 | `manifest.webmanifest` | name and icons when installed to a home screen |
 | `sw.js` | keeps the game on the device for offline play |
 | `icon-*.png` | the app icons, drawn from the game's own castle |
-| `icon-maze.ico` | the Windows desktop icon, drawn from the maze itself |
+| `icon-castle.ico` | the Windows desktop icon — the app icons, packed |
+| `icon-maze.ico` | an alternate desktop icon drawn from the maze |
 
 ## Putting it on a tablet
 

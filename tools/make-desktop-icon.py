@@ -1,15 +1,25 @@
 #!/usr/bin/env python3
-"""Build the Windows desktop icon from the maze's own imagery.
+"""Build a Windows desktop icon (.ico) for the game.
 
-    python3 tools/make-desktop-icon.py
+    python3 tools/make-desktop-icon.py maze      -> icon-maze.ico
+    python3 tools/make-desktop-icon.py castle    -> icon-castle.ico
+    python3 tools/make-desktop-icon.py both      (default)
 
-The app icons are the castle (tools/make-icons.py). This one is the maze:
-the corner a player starts in, walls lit along the top and shadowed along
-the bottom exactly as the game draws them, with a gold key on the floor.
+Two icons, because which one is right is a matter of taste and the answer
+changed once already.
 
-Nothing here is drawn by hand. The wall shape comes from sample-maze.json,
-the palette and the key sprite are parsed out of index.html, so changing
-the game's colours changes the icon and neither can drift from the other.
+**maze** is drawn here: the corner a player starts in, walls lit along the
+top and shadowed along the bottom exactly as the game draws them, with a
+gold key on the floor. The wall shape comes from sample-maze.json and the
+palette and key sprite are parsed out of index.html, so changing the game's
+colours changes the icon. Nothing is drawn by hand.
+
+**castle** is not drawn here at all. It packs the committed icon-*.png —
+the ones tools/make-icons.py renders from castle.js — into an .ico
+byte-for-byte, so the desktop icon and the installed-app icon are the same
+image and cannot disagree. It carries 48px and up natively, which covers
+the desktop; Windows scales for the 16 and 32px taskbar cases, because
+make-icons.py does not currently emit those sizes.
 
 No Pillow. The whole point of an icon generator is that it runs, and this
 one only needs zlib and struct from the standard library.
@@ -24,7 +34,13 @@ import zlib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAZE = os.path.join(ROOT, "sample-maze.json")
 GAME = os.path.join(ROOT, "index.html")
-OUT  = os.path.join(ROOT, "icon-maze.ico")
+OUT_MAZE   = os.path.join(ROOT, "icon-maze.ico")
+OUT_CASTLE = os.path.join(ROOT, "icon-castle.ico")
+
+# The app icons small enough for an .ico. 512 is over the format's limit and
+# maskable-512 is padded for Android's mask, so neither belongs here.
+CASTLE_PNGS = ["icon-48.png", "icon-72.png", "icon-96.png",
+               "icon-144.png", "icon-192.png", "icon-256.png"]
 
 SIDE_BIT = {"N": 1, "E": 2, "S": 4, "W": 8}
 
@@ -190,7 +206,7 @@ def ico(images):
     return head + entries + blobs
 
 
-def main():
+def build_maze():
     src = open(GAME, encoding="utf-8").read()
     doc = json.load(open(MAZE, encoding="utf-8"))
     pal = palette(src)
@@ -201,10 +217,43 @@ def main():
     for size, blocks in SIZES:
         images.append((size, png(render(size, blocks, doc, pal, key, cols))))
 
-    open(OUT, "wb").write(ico(images))
+    open(OUT_MAZE, "wb").write(ico(images))
     print("wrote %s — %d sizes (%s) from sample-maze.json"
-          % (os.path.basename(OUT), len(images),
+          % (os.path.basename(OUT_MAZE), len(images),
              ", ".join(str(s) for s, _ in SIZES)))
+
+
+def build_castle():
+    """No drawing: the app icons go in as they are. An .ico entry may be a
+    PNG verbatim, and these are already 8-bit RGBA, so the desktop icon is
+    literally the same bytes as the icon an installed tablet shows."""
+    images = []
+    for name in CASTLE_PNGS:
+        path = os.path.join(ROOT, name)
+        if not os.path.exists(path):
+            sys.exit("missing %s — run tools/make-icons.py first" % name)
+        data = open(path, "rb").read()
+        w, h = struct.unpack(">II", data[16:24])
+        if w != h or w > 256:
+            sys.exit("%s is %dx%d; an .ico entry must be square and <= 256"
+                     % (name, w, h))
+        images.append((w, data))
+
+    images.sort(key=lambda t: t[0])
+    open(OUT_CASTLE, "wb").write(ico(images))
+    print("wrote %s — %d sizes (%s) packed from the app icons"
+          % (os.path.basename(OUT_CASTLE), len(images),
+             ", ".join(str(s) for s, _ in images)))
+
+
+def main():
+    which = (sys.argv[1] if len(sys.argv) > 1 else "both").lower()
+    if which not in ("maze", "castle", "both"):
+        sys.exit("usage: make-desktop-icon.py [maze|castle|both]")
+    if which in ("maze", "both"):
+        build_maze()
+    if which in ("castle", "both"):
+        build_castle()
 
 
 if __name__ == "__main__":
