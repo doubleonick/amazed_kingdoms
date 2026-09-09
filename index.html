@@ -449,6 +449,10 @@
     has:function(kind){ return Object.prototype.hasOwnProperty.call(reg,kind); },
     available:function(){ return Object.keys(reg); },
     ready:function(){ return Object.keys(reg).filter(function(k){ return !reg[k].meta.placeholder; }); },
+    /* The complement of ready(): kinds still holding a placeholder, which
+       means the script that should have replaced one never arrived. The
+       registry knows the kind, not the filename — the caller maps it. */
+    missing:function(){ return Object.keys(reg).filter(function(k){ return reg[k].meta.placeholder; }); },
     meta:function(kind){ return reg[kind]?reg[kind].meta:null; },
     mount:function(kind,mountEl,session,report){
       if(!reg[kind]) throw new Error("no challenge registered for kind: "+kind);
@@ -2103,17 +2107,21 @@ function validate(doc) {
      finished folder — the game looks like it has silently reverted. So
      say plainly which files did not arrive. */
   (function(){
-    var NEEDED = {
+    /* The registry reports which KINDS are still placeholders; only this
+       page knows which file was supposed to supply each one. A kind with
+       no entry here is named as itself rather than dropped — a lookup that
+       fails quietly is how the wrong-glyph bug lived for weeks. */
+    var FILE_FOR = {
       "math":        "math-challenge.js",
       "language":    "word-challenge.js",
       "word-gate":   "word-gate.js",
       "number-gate": "number-gate.js"
     };
-    var missing = [];
-    Object.keys(NEEDED).forEach(function(kind){
-      var m = Challenges.meta(kind);
-      if(!m || m.placeholder) missing.push(NEEDED[kind]);
+    var missing = Challenges.missing().map(function(kind){
+      return FILE_FOR[kind] || (kind + " (no file known for this kind)");
     });
+    /* Not a challenge kind, so the registry cannot see it: word-gate.js
+       registers itself fine and then fails at run time without this. */
     if(!window.WordSentences) missing.push("word-sentences.js");
     if(!missing.length) return;
     var box=document.createElement("div");
