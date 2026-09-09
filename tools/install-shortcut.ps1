@@ -26,23 +26,53 @@ param(
 
   [string]$Url = 'https://doubleonick.github.io/amazed_kingdoms/',
 
-  [string]$Name = 'Am+zed Kingdoms'
+  [string]$Name = 'Am+zed Kingdoms',
+
+  # auto prefers whichever installed browser can give a window with no address
+  # bar. Opera is supported but cannot: see the note where it is resolved.
+  [ValidateSet('auto', 'edge', 'chrome', 'opera')]
+  [string]$Browser = 'auto'
 )
 
 $ErrorActionPreference = 'Stop'
 
-# ---- a browser that can do app mode ----------------------------------------
-$browsers = @(
-  "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
-  "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
-  "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
-  "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
-  "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
-)
-$browser = $browsers | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $browser) {
-  throw "No Edge or Chrome found. Both support --app=; install either, or open $Url in any browser and use its own Install option."
+# ---- pick a browser --------------------------------------------------------
+# Only Edge and Chrome implement --app=, which is what strips the address bar
+# and the tab strip. Opera accepts the flag on its command line and then opens
+# Speed Dial regardless - tested on Opera 135, including against a clean
+# profile, so it is not a stale-instance artefact. Opera therefore gets a
+# plain URL shortcut: same icon, same game, ordinary browser window.
+$known = [ordered]@{
+  edge   = @("$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+             "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe")
+  chrome = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+             "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+             "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe")
+  opera  = @("$env:LOCALAPPDATA\Programs\Opera\opera.exe",
+             "$env:ProgramFiles\Opera\opera.exe",
+             "${env:ProgramFiles(x86)}\Opera\opera.exe")
 }
+
+function Find-Browser([string]$key) {
+  $known[$key] | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+
+if ($Browser -eq 'auto') {
+  # Deliberately not the default browser: app mode is worth more here than
+  # matching what the rest of the machine opens links with.
+  foreach ($k in 'edge', 'chrome', 'opera') {
+    $found = Find-Browser $k
+    if ($found) { $Browser = $k; $exe = $found; break }
+  }
+} else {
+  $exe = Find-Browser $Browser
+}
+
+if (-not $exe) {
+  throw "No supported browser found. Install Edge or Chrome for a window with no address bar, or pass -Browser opera if Opera is installed elsewhere."
+}
+
+$appMode = $Browser -ne 'opera'
 
 # ---- the icon --------------------------------------------------------------
 # Kept outside the desktop so nobody deletes it by tidying up, and outside any
@@ -78,16 +108,24 @@ if ((Get-Item $icoPath).Length -lt 1024) {
 $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) "$Name.lnk"
 $shell = New-Object -ComObject WScript.Shell
 $s = $shell.CreateShortcut($lnk)
-$s.TargetPath       = $browser
-$s.Arguments        = "--app=$Url"
+$s.TargetPath       = $exe
+$s.Arguments        = $(if ($appMode) { "--app=$Url" } else { $Url })
 $s.IconLocation     = "$icoPath,0"
 $s.Description      = 'Am+zed Kingdoms - arithmetic and sight-reading maze'
-$s.WorkingDirectory = Split-Path $browser
+$s.WorkingDirectory = Split-Path $exe
 $s.Save()
 
 Write-Host "shortcut  : $lnk"
-Write-Host "browser   : $browser"
+Write-Host "browser   : $Browser ($exe)"
 Write-Host "opens     : $Url"
+if ($appMode) {
+  Write-Host "window    : app mode - no address bar, no tabs"
+} else {
+  Write-Host "window    : ordinary Opera window - Opera has no app mode."
+  Write-Host "            Install Edge or Chrome and re-run this for a"
+  Write-Host "            chromeless window. Your default browser is untouched"
+  Write-Host "            either way; only this shortcut is affected."
+}
 Write-Host ""
 Write-Host "Done. If the desktop still shows the old picture, press F5 on the"
 Write-Host "desktop - Windows caches icons and sometimes needs telling."
