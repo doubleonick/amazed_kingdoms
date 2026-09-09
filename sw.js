@@ -9,7 +9,7 @@
    children keep playing last month's build forever — which is the usual
    way a service worker goes wrong.
 =================================================================== */
-var VERSION = "amazed-v1";
+var VERSION = "amazed-v2";
 
 var SHELL = [
   "./",

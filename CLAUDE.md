@@ -66,7 +66,7 @@ read as a starburst, a panel that could not hide itself, and a deleted function
 that froze the player.
 
 - `node --check` every file after editing. The inline scripts in `index.html`
-  need extracting first — see the one-liners in the git history.
+  need extracting first — there are three of them.
 - `node check-sentences.js` after touching carrier sentences. It rebuilds every
   possible gate item and reports any with two right answers.
 - For layout questions, **ask for a screenshot from the real browser.** A
