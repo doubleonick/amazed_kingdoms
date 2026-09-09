@@ -1,0 +1,4 @@
+# Nothing here is part of the game — it is a flat folder of static files that
+# Pages serves as-is. This exists only so an ad-hoc jsdom harness does not
+# drag a dependency tree into the repo.
+node_modules/
