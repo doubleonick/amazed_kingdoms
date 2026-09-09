@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Am+zed Kingdoms</title>
 <meta name="description" content="Two kingdoms, a maze between them, and a bridge to finish. Sums at some doors, words at others.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0C1442">
+<link rel="icon" href="icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
@@ -505,6 +512,15 @@
      replaces the placeholder above. If it is missing, the browser logs a
      404, the placeholder stays, and this page still works. Never make the
      host depend on a file it can run without. -->
+<script>
+/* Keep the whole game on the device, so a tablet with no signal still
+   works. Silently does nothing on file:// or any browser without it. */
+if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  });
+}
+</script>
 <script src="profile.js"></script>
 <script src="unlocks.js"></script>
 <script src="math-challenge.js"></script>

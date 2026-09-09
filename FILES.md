@@ -37,6 +37,37 @@ left, and in the browser console.
 | `words.html` | the word drill on its own |
 | `speech-test.html` | diagnose a device with no voice |
 | `check-sentences.js` | run with node after editing carriers |
+| `tools/make-icons.py` | regenerate the app icons from `castle.js` |
+| `manifest.webmanifest` | name and icons when installed to a home screen |
+| `sw.js` | keeps the game on the device for offline play |
+| `icon-*.png` | the app icons, drawn from the game's own castle |
+
+## Putting it on a tablet
+
+Once it is on Pages, it installs like an app.
+
+**On the tablet, open the Pages link in a browser, then use the browser's menu
+and pick "Add to Home Screen"** (Silk and Chrome both have it; Chrome may offer
+"Install app" instead). You get the castle icon on the home screen, and it opens
+fullscreen with no address bar.
+
+`manifest.webmanifest` supplies the name and icons. `sw.js` keeps the whole game
+on the device, so it works with no signal — a car, a classroom with bad wifi.
+
+**When you publish an update, bump `VERSION` at the top of `sw.js`.** Forget to,
+and installed tablets keep playing the old build indefinitely. That is the usual
+way this goes wrong.
+
+**Try `speech-test.html` on the tablet before handing it over.** The word doors
+need the Web Speech API, and Fire tablets are the likeliest device to lack it.
+If speech fails there, word locks cannot run — turn them off under TOOLS and the
+game is numbers-only, which still works.
+
+## Working in the repo
+
+`CLAUDE.md` at the root is read automatically by Claude Code every session — the
+layout, the load-bearing rules, how to test, and what is in flight. Keep it
+current and a new session starts knowing the project instead of asking.
 
 ## Publishing to GitHub Pages
 
